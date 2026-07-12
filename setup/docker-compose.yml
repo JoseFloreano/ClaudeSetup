@@ -1,0 +1,106 @@
+# ══════════════════════════════════════════════════════════════
+#  Graphiti + FalkorDB — Setup multi-proyecto para Claude Code
+#  Datos en: ~/OneDrive/DevSetup/graphiti-data/  (portable)
+#  Levanta: docker compose up -d
+#  UI grafo: http://localhost:3000
+#  MCP:      http://localhost:8000/mcp/
+# ══════════════════════════════════════════════════════════════
+
+services:
+
+  falkordb:
+    image: falkordb/falkordb:latest     # incluye FalkorDB Browser UI en :3000
+    container_name: graphiti-falkordb
+    restart: unless-stopped
+    ports:
+      - "6379:6379"   # protocolo Redis / FalkorDB
+      - "3000:3000"   # FalkorDB Browser UI (visualización del grafo)
+    volumes:
+      # ──────────────────────────────────────────────────────────
+      # RUTA CRÍTICA para persistencia portable entre laptops.
+      # El .env define FALKORDB_DATA_PATH apuntando a tu OneDrive.
+      #
+      # Windows: C:\Users\TU\OneDrive\DevSetup\graphiti-data\falkordb
+      # macOS:   ~/Library/CloudStorage/OneDrive-Personal/DevSetup/graphiti-data/falkordb
+      # Linux:   ~/OneDrive/DevSetup/graphiti-data/falkordb
+      # ──────────────────────────────────────────────────────────
+      - ${FALKORDB_DATA_PATH:-./data}:/var/lib/falkordb/data
+    environment:
+      # AOF (Append-Only File) = durabilidad máxima entre sesiones
+      # RDB snapshots = backups rápidos cada N cambios
+      # everysec = máximo 1 segundo de pérdida de datos si crash
+      - REDIS_ARGS=--appendonly yes --appendfsync everysec --save 60 1000 --save 300 100 --save 900 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - graphiti-net
+
+  graphiti-mcp:
+    image: falkordb/graphiti-knowledge-graph-mcp:latest
+    container_name: graphiti-mcp-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # endpoint MCP — Claude Code se conecta aquí
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    environment:
+      # ── LLM Provider ──────────────────────────────────────────
+      # Graphiti usa LLM solo al ESCRIBIR (extracción de entidades).
+      # En lectura/búsqueda NO llama al LLM → latencia mínima.
+      # IMPORTANTE: Anthropic tiene soporte experimental para
+      # structured output. Para mayor estabilidad en extracción,
+      # usa OpenAI (gpt-4.1-mini) o Gemini como LLM_PROVIDER.
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MODEL_NAME=${MODEL_NAME:-claude-sonnet-4-6}
+      - SMALL_MODEL_NAME=${SMALL_MODEL_NAME:-claude-haiku-4-5-20251001}
+      # ── Database ─────────────────────────────────────────────
+      - DATABASE_TYPE=falkordb
+      - FALKORDB_HOST=falkordb      # nombre del servicio Docker
+      - FALKORDB_PORT=6379
+      - FALKORDB_PASSWORD=${FALKORDB_PASSWORD:-}
+      # ── Concurrencia (rate limit protection) ─────────────────
+      # Anthropic Tier 1 → 2 | Tier 2 → 5 | Tier 3+ → 10
+      # OpenAI   Tier 1 → 2 | Tier 2 → 8 | Tier 3+ → 15
+      - SEMAPHORE_LIMIT=${SEMAPHORE_LIMIT:-3}
+      # ── Telemetría (deshabilitada) ────────────────────────────
+      - GRAPHITI_TELEMETRY_ENABLED=false
+      - DISABLE_TELEMETRY=1
+      - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+      # ── Transport ─────────────────────────────────────────────
+      # HTTP es soportado nativamente por Claude Code.
+      # Claude Desktop requiere mcp-remote como gateway.
+      - TRANSPORT=http
+    volumes:
+      - ${CONFIG_PATH:-./config}:/app/config:ro
+    networks:
+      - graphiti-net
+
+networks:
+  graphiti-net:
+    driver: bridge
+
+# ══════════════════════════════════════════════════════════════
+#  NOTAS MULTI-LAPTOP
+# ══════════════════════════════════════════════════════════════
+#
+#  El grafo vive en FALKORDB_DATA_PATH (OneDrive).
+#  FalkorDB escribe dump.rdb (RDB snapshot) y appendonly.aof.
+#
+#  ⚠️  PROBLEMA: OneDrive puede interferir con archivos abiertos
+#  (locks de FalkorDB sobre dump.rdb / appendonly.aof).
+#
+#  ESTRATEGIA RECOMENDADA (ver README del proyecto):
+#  Option A: Datos en disco LOCAL, backups periódicos a OneDrive.
+#  Option B: Datos en OneDrive SOLO si usas un laptop a la vez
+#            (apaga docker compose antes de cambiar de máquina).
+#  Option C: FalkorDB Cloud (managed, accesible desde cualquier laptop).
+#
+#  Ver scripts/backup-graph.sh para automatizar Option A.

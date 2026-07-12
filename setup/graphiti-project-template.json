@@ -1,0 +1,45 @@
+{
+  "_docs": "Copia a la raíz de cada proyecto como .graphiti.json. PR #1209 de getzep/graphiti.",
+  "_usage": "Graphiti detecta este archivo via GRAPHITI_PROJECT_DIR env var (no por CWD).",
+
+  "project_id": "MI-PROYECTO",
+  "project_name": "Nombre Descriptivo del Proyecto",
+  "stack": ["react", "nextjs", "python", "flutter", "cpp"],
+
+  "memory": {
+    "group_id": "MI-PROYECTO",
+    "shared_groups": ["dev-global", "dev-conventions"],
+    "description": "Memoria específica de este proyecto — isolada de otros proyectos"
+  },
+
+  "smart_memory": {
+    "enabled": true,
+    "route_to_shared_on": ["Preference", "Procedure", "ProjectConvention"],
+    "route_to_project_on": ["ArchitectureDecision", "BugFix", "LibraryVersion", "CodePattern", "Requirement", "DeploymentNote"]
+  },
+
+  "entity_types": {
+    "custom": [
+      {
+        "name": "ArchitectureDecision",
+        "description": "Decisiones de arquitectura tomadas en este proyecto",
+        "fields": ["decision", "rationale", "alternatives_rejected", "date", "author"]
+      },
+      {
+        "name": "BugFix",
+        "description": "Bugs encontrados y cómo se resolvieron",
+        "fields": ["symptom", "root_cause", "fix_applied", "files_changed", "date"]
+      },
+      {
+        "name": "LibraryVersion",
+        "description": "Versiones pinned de dependencias con notas",
+        "fields": ["library", "version", "reason_pinned", "breaking_changes", "upgrade_notes"]
+      }
+    ]
+  },
+
+  "deduplication": {
+    "enabled": true,
+    "threshold": 0.85
+  }
+}

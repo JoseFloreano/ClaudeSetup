@@ -1,0 +1,79 @@
+# ══════════════════════════════════════════════════════════════
+#  Graphiti MCP Server — config.yaml
+#  Docs: https://help.getzep.com/graphiti/getting-started/mcp-server
+#  Jerarquía: CLI args > env vars > este archivo
+# ══════════════════════════════════════════════════════════════
+
+transport: http   # Claude Code soporta HTTP nativamente.
+                  # Claude Desktop necesita mcp-remote como proxy.
+
+# ── LLM (se sobreescribe con env vars del docker-compose) ──────────────
+llm:
+  provider: "openai"           # Más estable para structured output JSON
+  model: "gpt-4.1-mini"        # Barato, rápido, suficiente para extracción
+  small_model: "gpt-4.1-nano"  # Para operaciones internas de menor complejidad
+  temperature: 0.1             # Bajo → extracción determinista y consistente
+
+# ── Embeddings ─────────────────────────────────────────────────────────
+embedder:
+  provider: "openai"
+  model: "text-embedding-3-small"   # 1536 dims, barato, buena calidad semántica
+  # Alternativa 100% local (requiere Ollama corriendo en la misma máquina):
+  # provider: "sentence_transformers"
+  # model: "all-MiniLM-L6-v2"       # 384 dims, sin costo, OK para uso personal
+
+# ── Base de datos ──────────────────────────────────────────────────────
+database:
+  provider: "falkordb"
+  falkordb:
+    host: "falkordb"    # nombre del servicio en docker-compose
+    port: 6379
+    # database: "graphiti"  # desde PR #1209: única DB con group_id para aislar
+
+# ── Tipos de entidad para extracción ───────────────────────────────────
+# Graphiti extrae AUTOMÁTICAMENTE estas entidades de cada episodio.
+# Los built-in (Preference, Requirement, etc.) siempre están activos.
+# Aquí añadimos tipos específicos para desarrollo de software.
+entity_types:
+
+  # ── Built-in (siempre activos) ───────────────────────────────────
+  - name: Preference
+    description: "Preferencias del desarrollador — frameworks, librerías, estilos de código"
+
+  - name: Procedure
+    description: "Procedimientos estándar — cómo hacer deploy, cómo correr tests, cómo hacer X"
+
+  - name: Requirement
+    description: "Requisitos del proyecto — funcionales y no funcionales"
+
+  # ── Custom para desarrollo de software ───────────────────────────
+  - name: ArchitectureDecision
+    description: "Decisiones de arquitectura (ADRs) — por qué se eligió X sobre Y"
+
+  - name: BugFix
+    description: "Bugs encontrados y sus soluciones — síntoma, causa raíz, fix aplicado"
+
+  - name: LibraryVersion
+    description: "Versiones de dependencias importantes — breaking changes, migration notes"
+
+  - name: CodePattern
+    description: "Patrones de código recurrentes en el proyecto — buenos y anti-patrones"
+
+  - name: ProjectConvention
+    description: "Convenciones del proyecto — naming, estructura de carpetas, estilo"
+
+  - name: DeploymentNote
+    description: "Notas de deployment — configs de infra, variables de entorno, servicios"
+
+# ── Deduplicación ─────────────────────────────────────────────────────
+# Evita guardar el mismo hecho 10 veces en sesiones repetidas.
+deduplication:
+  enabled: true
+  threshold: 0.85   # 0.0-1.0 (más alto = más estricto, menos duplicados)
+
+# ── Cola de procesamiento ─────────────────────────────────────────────
+# Procesamiento asíncrono para no bloquear Claude Code mientras Graphiti
+# extrae entidades (proceso de 500ms-2s por episodio).
+queue:
+  enabled: true
+  max_workers: 3    # debe coincidir con SEMAPHORE_LIMIT en .env
