@@ -1,7 +1,60 @@
-# Graphiti + FalkorDB — Setup Multi-Laptop con OneDrive
+# Setup Multi-Laptop con OneDrive — Claude Code + Cowork
 
-Setup de memoria temporal con grafo de conocimiento para Claude Code,
-diseñado para funcionar en 2-3 laptops sincronizadas via OneDrive.
+Setup compartido entre Claude Code y Cowork, diseñado para 2-3 laptops
+sincronizadas via OneDrive. Ver análisis de división de trabajo entre
+productos en `docs/08-COWORK-VS-CLAUDE-CODE.md`.
+
+> **Enfoque actual (julio 2026):** el setup arranca con **skills + memoria
+> durable** — vault de Obsidian vía skills (`adr-writer`/`memory-keeper`) y
+> markdown en OneDrive, sin API keys ni Docker, cubierto por la suscripción de
+> Claude. **Graphiti + FalkorDB queda como OPCIONAL / pospuesto para el futuro**
+> (sección "Graphiti + FalkorDB" más abajo): se monta en una tarde el día que
+> se extrañe el razonamiento temporal ("¿qué usábamos en marzo?").
+
+## Componentes de este directorio
+
+| Componente | Archivos | Aplica a |
+|-----------|----------|----------|
+| **Skills modulares** (carpeta única en OneDrive, dividida en shared / claude-code / cowork) | `skills/` (seed + template + README), `sync-skills.ps1/.sh` | Ambos |
+| **Memoria por proyecto** (aislamiento estricto anti-alucinación) | `memory-instructions.md` (snippet CLAUDE.md ~230 tokens), `cowork-project-instructions.md` (Cowork), skill `memory-keeper`, `graphiti-project-template.json` | Ambos |
+| **Enforcement del aislamiento** (garantía determinista, no solo instrucciones) | `hooks/validate-graphiti-group-id.py` + `hooks/README.md` | Claude Code (solo con Graphiti activo) |
+| **Graphiti + FalkorDB** ⏸️ *opcional — pospuesto* (memoria temporal, resto de este README) | `docker-compose.yml`, `config.yaml`, `.env.example`, `backup-graph.ps1/.sh`, `restore-graph.ps1/.sh` | Claude Code (Cowork solo vía puente del desktop app) |
+| **Bootstrap laptop nueva** | `setup-new-machine.ps1/.sh` (incluye sync de skills y tareas programadas de backup) | Ambos |
+
+### Skills: el flujo corto
+
+```
+OneDrive/DevSetup/claude-skills/{shared,claude-code,cowork}   ← fuente de verdad
+  → sync-skills.ps1/.sh copia a ~/.claude*/skills/            ← Claude Code
+  → y empaqueta _build/dev-skills.zip                          ← subir 1 vez a Cowork
+Skill nueva: carpeta + SKILL.md + re-correr sync. Detalles: skills/README.md
+```
+
+### Memoria por proyecto: la regla de oro
+
+Todo acceso a memoria (vault siempre; Graphiti cuando esté activo) va SIEMPRE
+filtrado al proyecto activo + `dev-global`. Nunca consultar ni escribir memoria
+de otro proyecto — es la defensa principal contra alucinaciones cross-proyecto. El snippet
+`memory-instructions.md` (Code) y `cowork-project-instructions.md` (Cowork)
+implementan la misma regla en ambos productos; reemplaza `<project-name>` al
+copiarlos.
+
+---
+
+# Graphiti + FalkorDB — Memoria temporal
+
+> **Estado (julio 2026): POSPUESTO por decisión propia.** El setup arranca sin
+> Graphiti — el vault de Obsidian (vía skills `adr-writer`/`memory-keeper`)
+> cubre la memoria esencial con la suscripción de Claude, sin API keys ni
+> Docker. Criterio para activarlo: si tras 3–4 semanas extrañas el
+> razonamiento temporal ("¿qué usábamos en marzo?"), se monta en una tarde.
+>
+> **Sin costo de API al activarlo:** la extracción de entidades puede correr
+> con el free tier de **Gemini** (ruta 2 del `.env.example` — recomendada:
+> ~1,500 req/día y ~1M tokens/min sobran para ~10 episodios/sesión) o de
+> **Groq** (ruta 3 — rapidísimo, pero su límite real es ~6k tokens/MINUTO:
+> usa el modelo 70b y `SEMAPHORE_LIMIT=2`). La suscripción de Claude NO puede
+> usarse para esto: Graphiti llama al LLM por API desde su propio server.
 
 ## Arquitectura
 
@@ -31,18 +84,26 @@ sincronizar archivos abiertos y puede generar:
 - Conflictos de sync si dos laptops tienen el container corriendo simultáneamente
 - Locks que bloquean la sync de OneDrive silenciosamente
 
-### Estrategia A — Recomendada: Datos locales + backups a OneDrive
+### Estrategia A — Recomendada (y la que implementan los scripts tras la auditoría doc 09)
 
 ```
-FALKORDB_DATA_PATH=./data         # disco local, rápido, sin conflictos
-backup-graph.sh cada 4 horas     # copia dump.rdb a OneDrive
+Datos vivos:  %LOCALAPPDATA%\graphiti\data   (Win)   ← disco LOCAL, nunca OneDrive
+              ~/.local/share/graphiti/data   (Unix)
+.env local:   junto a los datos (API keys fuera de OneDrive — fix A4)
+Backups:      backup-graph.ps1/.sh cada 4h → OneDrive/DevSetup/graphiti-data/backups/
+
 Al cambiar de laptop:
-  docker compose stop             # fuerza BGSAVE final
-  backup-graph.sh                 # copia a OneDrive
-  En laptop nueva: setup-new-machine.sh (restaura desde .rdb)
+  docker compose stop                  # fuerza BGSAVE final
+  backup-graph.ps1 / .sh               # snapshot → OneDrive (avisa si hay fork)
+  En la otra laptop: restore-graph.ps1 / .sh
 ```
 
-**Pros**: Sin riesgo de corrupción, rendimiento máximo, sync sin conflictos.
+⚠️ **NUNCA restaures copiando `dump.rdb` a mano** (fix A3): con AOF activo el
+server carga del AOF e ignora el .rdb — "restaura" sin error y sin datos.
+`restore-graph` hace el procedimiento correcto (recovery sin AOF → verifica
+DBSIZE → regenera AOF) y falla ruidosamente si los datos no cargaron.
+
+**Pros**: Sin riesgo de corrupción, rendimiento máximo, restore verificado.
 **Contras**: El grafo no se sincroniza en tiempo real entre laptops.
 
 ### Estrategia B — Datos en OneDrive (solo si un laptop a la vez)
@@ -75,29 +136,30 @@ pero se conecta a la instancia cloud en vez de localhost.
 **Pros**: Grafo siempre disponible desde cualquier laptop, sin sync manual.
 **Contras**: Requiere cuenta, tiene costo en volumen alto.
 
-## Estructura de archivos en OneDrive
+## Estructura de archivos (post-auditoría: local vs OneDrive)
 
 ```
-OneDrive/
-└── DevSetup/
-    ├── claude-dotfiles/          # repo git (configs de Claude Code)
-    │   └── graphiti/
-    │       ├── docker-compose.yml
-    │       ├── config.yaml
-    │       └── scripts/
-    ├── graphiti-docker/          # directorio de trabajo Docker
-    │   ├── docker-compose.yml   # (copiado desde dotfiles)
-    │   └── .env                 # API keys (NO en git)
-    └── graphiti-data/
-        ├── falkordb/            # datos del grafo (Estrategia B)
-        │   ├── dump.rdb
-        │   └── appendonly.aof
-        ├── backups/             # snapshots con timestamp (Estrategia A)
-        │   ├── graphiti_20260712_120000.rdb
-        │   └── graphiti_20260712_120000.manifest.json
-        └── config/
-            └── config.yaml
+LOCAL (por máquina — nunca se sincroniza):
+%LOCALAPPDATA%\graphiti\  |  ~/.local/share/graphiti/
+├── docker-compose.yml    # copiado desde el repo/dotfiles
+├── .env                  # API keys + pins de versión (fix A4: FUERA de OneDrive)
+├── data/                 # datos vivos de FalkorDB (fix A1: FUERA de OneDrive)
+├── config/config.yaml
+└── scripts/              # backup-graph + restore-graph
+
+OneDrive (solo artefactos terminados y portables):
+OneDrive/DevSetup/
+├── claude-dotfiles/               # repo git (configs de Claude Code)
+├── claude-skills/                 # skills shared/claude-code/cowork (+ _build/)
+└── graphiti-data/backups/         # snapshots con timestamp + manifiestos
+    ├── graphiti_20260712_120000.rdb
+    └── graphiti_20260712_120000.manifest.json
 ```
+
+> **Vault de Obsidian (pendiente al crearlo — auditoría R6):** decidir UN
+> mecanismo primario de sync. Recomendado: vault en OneDrive + Obsidian Git
+> con remote en GitHub y el directorio `.git` FUERA de la carpeta OneDrive
+> (evita miles de archivos pequeños del .git en la sync).
 
 ## Aislamiento multi-proyecto con group_id
 
@@ -160,23 +222,28 @@ En Claude Code, configura esto en el hook SessionStart o en .env del proyecto.
    decidió, qué se aprendió). Graphify = estructura del codebase (qué
    función llama a qué). Son complementarios, no reemplazos.
 
-5. **Recuperación de .rdb**: Si el grafo se corrompe o pierdes datos,
-   restaurar desde backup: `docker cp backup.rdb container:/var/lib/falkordb/data/dump.rdb`
-   luego `docker restart graphiti-falkordb`.
+5. **Recuperación de .rdb**: SOLO con `restore-graph.ps1` / `restore-graph.sh`.
+   El viejo método (`docker cp` + restart) NO funciona con AOF activo — el
+   server ignora el dump.rdb y "restaura" nada (auditoría A3). Haz un
+   simulacro de restore al terminar el setup y luego mensualmente.
 
 ## Comandos útiles
 
 ```bash
-# Levantar / bajar
-docker compose up -d
-docker compose stop     # guarda correctamente antes de apagar
+# Levantar / bajar (el .env vive LOCAL — fix A4)
+GL=~/.local/share/graphiti   # Windows: $env:LOCALAPPDATA\graphiti
+docker compose --env-file $GL/.env -f $GL/docker-compose.yml up -d
+docker compose --env-file $GL/.env -f $GL/docker-compose.yml stop
 
 # Ver logs
 docker logs graphiti-mcp-server -f
 docker logs graphiti-falkordb -f
 
-# Backup manual
-./scripts/backup-graph.sh ~/OneDrive
+# Backup manual (siempre antes de cambiar de laptop)
+$GL/scripts/backup-graph.sh ~/OneDrive
+
+# Restore (NUNCA copies dump.rdb a mano — ver caveat 5)
+$GL/scripts/restore-graph.sh
 
 # Verificar grafo en FalkorDB Browser
 open http://localhost:3000

@@ -2,7 +2,14 @@
 # ══════════════════════════════════════════════════════════════
 #  backup-graph.sh — Snapshot RDB de FalkorDB → OneDrive
 #  Cron sugerido: 0 */4 * * * /path/to/backup-graph.sh
-#  También útil: ejecutar antes de apagar/cambiar de laptop.
+#  También: ejecutar SIEMPRE antes de cambiar de laptop.
+#
+#  Fixes de auditoría (doc 09):
+#   - Manifest JSON válido (A7: antes incrustaba INFO multilínea)
+#   - Aviso de fork si el último backup lo escribió otra máquina (R1)
+#   - Restore SOLO via restore-graph.sh (A3: con AOF activo, copiar
+#     dump.rdb a mano NO restaura — el server carga del AOF)
+#   - Sin copia en caliente del AOF (docker cp mid-write = archivo roto)
 #
 #  Uso:
 #    ./backup-graph.sh                          # usa defaults
@@ -14,8 +21,9 @@ set -euo pipefail
 
 CONTAINER_NAME="${CONTAINER_NAME:-graphiti-falkordb}"
 ONEDRIVE_PATH="${1:-${ONEDRIVE_PATH:-$HOME/OneDrive}}"
-BACKUP_DIR="${ONEDRIVE_PATH}/DevSetup/graphiti-data/backups"
+BACKUP_DIR="${BACKUP_DIR:-${ONEDRIVE_PATH}/DevSetup/graphiti-data/backups}"
 MAX_BACKUPS="${MAX_BACKUPS:-15}"
+HOST="$(hostname)"
 
 # ── 1. Verificar container ────────────────────────────────────────────────
 if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"; then
@@ -23,16 +31,27 @@ if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"
   exit 0
 fi
 
-# ── 2. Crear directorio de backup ─────────────────────────────────────────
 mkdir -p "${BACKUP_DIR}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
-# ── 3. Trigger BGSAVE (no-blocking) ──────────────────────────────────────
+# ── 2. Aviso de fork multi-laptop (R1) ───────────────────────────────────
+LATEST_MANIFEST=$(ls -t "${BACKUP_DIR}"/*.manifest.json 2>/dev/null | head -1 || echo "")
+if [ -n "${LATEST_MANIFEST}" ] && command -v python3 >/dev/null 2>&1; then
+  LAST_HOST=$(python3 -c "import json;print(json.load(open('${LATEST_MANIFEST}')).get('hostname',''))" 2>/dev/null || echo "")
+  if [ -n "${LAST_HOST}" ] && [ "${LAST_HOST}" != "${HOST}" ]; then
+    echo "══════════════════════════════════════════════════════════════"
+    echo "[⚠ FORK WARNING] El backup más reciente lo escribió '${LAST_HOST}'."
+    echo "  Si NO restauraste desde él en esta máquina (restore-graph.sh),"
+    echo "  este backup guardará una historia DIVERGENTE del grafo."
+    echo "══════════════════════════════════════════════════════════════"
+  fi
+fi
+
+# ── 3. Trigger BGSAVE y esperar a que termine ─────────────────────────────
 echo "[INFO] Triggering BGSAVE en FalkorDB..."
 BEFORE_SAVE=$(docker exec "${CONTAINER_NAME}" redis-cli LASTSAVE 2>/dev/null || echo "0")
 docker exec "${CONTAINER_NAME}" redis-cli BGSAVE > /dev/null 2>&1 || true
 
-# Esperar a que el snapshot termine (max 30s)
 MAX_WAIT=30
 SAVED=false
 for i in $(seq 1 $MAX_WAIT); do
@@ -44,14 +63,10 @@ for i in $(seq 1 $MAX_WAIT); do
     break
   fi
 done
-if [ "$SAVED" = false ]; then
-  echo "[WARN] BGSAVE no confirmado en ${MAX_WAIT}s. Copiando de todas formas."
-fi
+[ "$SAVED" = false ] && echo "[WARN] BGSAVE no confirmado en ${MAX_WAIT}s. Copiando de todas formas."
 
 # ── 4. Copiar dump.rdb ────────────────────────────────────────────────────
 BACKUP_FILE="${BACKUP_DIR}/graphiti_${TIMESTAMP}.rdb"
-
-# Intentar varias rutas posibles donde FalkorDB guarda el RDB
 COPIED=false
 for DATA_PATH in "/var/lib/falkordb/data/dump.rdb" "/data/dump.rdb"; do
   if docker exec "${CONTAINER_NAME}" test -f "${DATA_PATH}" 2>/dev/null; then
@@ -62,45 +77,36 @@ for DATA_PATH in "/var/lib/falkordb/data/dump.rdb" "/data/dump.rdb"; do
     }
   fi
 done
-
 if [ "$COPIED" = false ]; then
-  echo "[WARN] No se encontró dump.rdb. Si usas bind mount en OneDrive, el archivo"
-  echo "       ya está en ${ONEDRIVE_PATH}/DevSetup/graphiti-data/falkordb/"
+  echo "[ERR] No se pudo copiar dump.rdb. Backup FALLIDO."
+  exit 1
 fi
 
-# ── 5. También copiar AOF para mayor durabilidad ─────────────────────────
-AOF_BACKUP="${BACKUP_DIR}/graphiti_${TIMESTAMP}.aof"
-for AOF_PATH in "/var/lib/falkordb/data/appendonly.aof" "/data/appendonly.aof"; do
-  if docker exec "${CONTAINER_NAME}" test -f "${AOF_PATH}" 2>/dev/null; then
-    docker cp "${CONTAINER_NAME}:${AOF_PATH}" "${AOF_BACKUP}" 2>/dev/null && break
-  fi
-done
-
-# ── 6. Crear manifiesto del backup ───────────────────────────────────────
+# ── 5. Manifiesto (JSON válido — solo campos escalares) ──────────────────
+DBSIZE=$(docker exec "${CONTAINER_NAME}" redis-cli DBSIZE 2>/dev/null | tr -dc '0-9' || echo "-1")
+IMAGE=$(docker inspect --format '{{.Config.Image}}' "${CONTAINER_NAME}" 2>/dev/null || echo "unknown")
 MANIFEST="${BACKUP_DIR}/graphiti_${TIMESTAMP}.manifest.json"
-GRAPH_INFO=$(docker exec "${CONTAINER_NAME}" redis-cli INFO keyspace 2>/dev/null || echo "unavailable")
 cat > "${MANIFEST}" << MANIFEST_EOF
 {
   "timestamp": "${TIMESTAMP}",
+  "hostname": "${HOST}",
   "container": "${CONTAINER_NAME}",
-  "hostname": "$(hostname)",
+  "image": "${IMAGE}",
   "rdb_file": "graphiti_${TIMESTAMP}.rdb",
-  "graph_info": "${GRAPH_INFO}",
-  "restore_cmd": "docker cp graphiti_${TIMESTAMP}.rdb graphiti-falkordb:/var/lib/falkordb/data/dump.rdb && docker restart graphiti-falkordb"
+  "dbsize": ${DBSIZE:--1},
+  "restore": "NO copiar dump.rdb a mano (AOF lo ignora). Usar restore-graph.sh / restore-graph.ps1"
 }
 MANIFEST_EOF
-echo "[INFO] Manifiesto: ${MANIFEST}"
+echo "[INFO] Manifiesto: ${MANIFEST} (dbsize=${DBSIZE})"
 
-# ── 7. Limpiar backups viejos (mantener últimos MAX_BACKUPS) ─────────────
-OLD_BACKUPS=$(ls -t "${BACKUP_DIR}"/*.rdb 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)))
+# ── 6. Rotación (mantener últimos MAX_BACKUPS) ────────────────────────────
+OLD_BACKUPS=$(ls -t "${BACKUP_DIR}"/*.rdb 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) || true)
 if [ -n "$OLD_BACKUPS" ]; then
   echo "$OLD_BACKUPS" | xargs rm -f
-  # Limpiar manifiestos huérfanos también
   ls -t "${BACKUP_DIR}"/*.manifest.json 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs rm -f 2>/dev/null || true
   echo "[INFO] Backups viejos limpiados."
 fi
 
-# ── 8. Verificar espacio en OneDrive ─────────────────────────────────────
 BACKUP_SIZE=$(du -sh "${BACKUP_DIR}" 2>/dev/null | cut -f1 || echo "?")
 echo "[INFO] Tamaño total de backups: ${BACKUP_SIZE} en ${BACKUP_DIR}"
 echo "[DONE] Backup completado: $(date)"

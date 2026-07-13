@@ -1,0 +1,134 @@
+# ══════════════════════════════════════════════════════════════
+#  sync-skills.ps1 — Sincroniza skills desde OneDrive a Claude Code
+#                    y empaqueta el plugin dev-skills para Cowork
+#
+#  Fuente de verdad:  OneDrive/DevSetup/claude-skills/{shared,claude-code,cowork}
+#  Destinos Code:     ~/.claude/skills/ + cada ~/.claude-*/skills/ (multi-cuenta)
+#  Destino Cowork:    claude-skills/_build/dev-skills(.zip) → subir en Customize→Plugins
+#
+#  SIEMPRE copia, nunca symlinks (OneDrive en Windows no los soporta — H8).
+#  Es seguro correrlo cuantas veces quieras: solo gestiona las skills que él
+#  mismo instaló (manifest _onedrive-sync.json); no toca tus otras skills.
+#
+#  Uso:
+#    .\sync-skills.ps1
+#    .\sync-skills.ps1 -SkillsRoot "D:\OneDrive\DevSetup\claude-skills"
+#    .\sync-skills.ps1 -NoCoworkBuild
+# ══════════════════════════════════════════════════════════════
+
+param(
+    [string]$SkillsRoot = "",
+    [switch]$NoCoworkBuild = $false
+)
+
+$ErrorActionPreference = "Stop"
+function Write-OK   { param($m) Write-Host "  [OK] $m"   -ForegroundColor Green }
+function Write-Warn { param($m) Write-Host "  [WARN] $m" -ForegroundColor Yellow }
+function Write-Info { param($m) Write-Host "  [INFO] $m" -ForegroundColor Cyan }
+
+# ── Resolver la carpeta de skills en OneDrive ─────────────────────────────
+if (-not $SkillsRoot) {
+    $od = if ($env:OneDrive) { $env:OneDrive } else { "$env:USERPROFILE\OneDrive" }
+    $SkillsRoot = Join-Path $od "DevSetup\claude-skills"
+}
+
+# ── Primera vez: crear estructura y seed desde el repo ────────────────────
+$categories = @("shared", "claude-code", "cowork")
+if (-not (Test-Path $SkillsRoot)) {
+    Write-Info "Creando estructura en $SkillsRoot"
+    foreach ($c in $categories + @("_template")) {
+        New-Item -ItemType Directory -Force -Path (Join-Path $SkillsRoot $c) | Out-Null
+    }
+    # Seed: si el script corre desde el repo, copiar plantilla y skills iniciales
+    $repoSkills = Join-Path $PSScriptRoot "skills"
+    if (Test-Path $repoSkills) {
+        Copy-Item "$repoSkills\*" $SkillsRoot -Recurse -Force
+        Write-OK "Seed inicial copiado desde el repo ($repoSkills)"
+    }
+}
+
+# ── Recolectar skills fuente (carpetas con SKILL.md) ──────────────────────
+function Get-Skills { param($cats)
+    $found = @{}
+    foreach ($c in $cats) {
+        $dir = Join-Path $SkillsRoot $c
+        if (-not (Test-Path $dir)) { continue }
+        Get-ChildItem $dir -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName "SKILL.md")
+        } | ForEach-Object {
+            # Orden de $cats importa: la última categoría gana en conflicto de nombre
+            $found[$_.Name] = $_.FullName
+        }
+    }
+    return $found
+}
+
+# ── 1. Claude Code: copiar shared + claude-code a cada config dir ─────────
+Write-Host "`n▶ Sincronizando skills para Claude Code" -ForegroundColor Blue
+$codeSkills = Get-Skills @("shared", "claude-code")   # claude-code gana conflictos
+
+$configDirs = @("$env:USERPROFILE\.claude") + `
+    (Get-ChildItem "$env:USERPROFILE" -Directory -Filter ".claude-*" -Force -ErrorAction SilentlyContinue |
+     ForEach-Object { $_.FullName })
+
+foreach ($cfg in $configDirs) {
+    if (-not (Test-Path $cfg)) { continue }
+    $target = Join-Path $cfg "skills"
+    New-Item -ItemType Directory -Force -Path $target | Out-Null
+
+    # Manifest: qué skills gestiona este script (para poder borrar las removidas)
+    $manifestPath = Join-Path $target "_onedrive-sync.json"
+    $previous = @()
+    if (Test-Path $manifestPath) {
+        $previous = (Get-Content $manifestPath -Raw | ConvertFrom-Json).skills
+    }
+
+    # Borrar skills gestionadas que ya no existen en OneDrive
+    foreach ($old in $previous) {
+        if (-not $codeSkills.ContainsKey($old)) {
+            Remove-Item (Join-Path $target $old) -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Info "Removida skill obsoleta '$old' de $target"
+        }
+    }
+
+    # Copiar (reemplazo limpio por skill)
+    foreach ($name in $codeSkills.Keys) {
+        $dest = Join-Path $target $name
+        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+        Copy-Item $codeSkills[$name] $dest -Recurse
+    }
+
+    @{ syncedAt = (Get-Date -Format 'yyyy-MM-dd HH:mm'); source = $SkillsRoot;
+       skills = @($codeSkills.Keys) } | ConvertTo-Json | Out-File $manifestPath -Encoding UTF8
+    Write-OK "$($codeSkills.Count) skills → $target"
+}
+
+# ── 2. Cowork: empaquetar plugin dev-skills (shared + cowork) ─────────────
+if (-not $NoCoworkBuild) {
+    Write-Host "`n▶ Empaquetando plugin dev-skills para Cowork" -ForegroundColor Blue
+    $coworkSkills = Get-Skills @("shared", "cowork")   # cowork gana conflictos
+
+    $buildRoot  = Join-Path $SkillsRoot "_build"
+    $pluginDir  = Join-Path $buildRoot "dev-skills"
+    if (Test-Path $pluginDir) { Remove-Item $pluginDir -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path (Join-Path $pluginDir ".claude-plugin") | Out-Null
+    $skillsDir = Join-Path $pluginDir "skills"
+    New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
+
+    foreach ($name in $coworkSkills.Keys) {
+        Copy-Item $coworkSkills[$name] (Join-Path $skillsDir $name) -Recurse
+    }
+
+    @{ name = "dev-skills"
+       description = "Skills personales de desarrollo (sincronizadas desde OneDrive/DevSetup/claude-skills)"
+       version = (Get-Date -Format 'yyyy.MM.dd')
+    } | ConvertTo-Json | Out-File (Join-Path $pluginDir ".claude-plugin\plugin.json") -Encoding UTF8
+
+    $zipPath = Join-Path $buildRoot "dev-skills.zip"
+    if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+    Compress-Archive -Path $pluginDir -DestinationPath $zipPath
+    Write-OK "$($coworkSkills.Count) skills → $zipPath"
+    Write-Info "Instalar/actualizar en Cowork: desktop app → Customize → Plugins → subir dev-skills.zip"
+}
+
+Write-Host "`nListo. Las sesiones nuevas de Claude Code ya ven las skills." -ForegroundColor Green

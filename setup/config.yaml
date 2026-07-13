@@ -15,10 +15,15 @@ llm:
   temperature: 0.1             # Bajo → extracción determinista y consistente
 
 # ── Embeddings ─────────────────────────────────────────────────────────
+# ⚠ El embedder es INDEPENDIENTE del llm de arriba: si usas la ruta gratis
+#   (gemini/groq) y dejas el embedder en openai, igual te pedirá esa key.
 embedder:
   provider: "openai"
   model: "text-embedding-3-small"   # 1536 dims, barato, buena calidad semántica
-  # Alternativa 100% local (requiere Ollama corriendo en la misma máquina):
+  # Alternativa GRATIS con la misma key de Gemini (ruta 2 del .env.example):
+  # provider: "gemini"
+  # model: "text-embedding-004"
+  # Alternativa 100% local (sin key, sin red; corre en el server MCP):
   # provider: "sentence_transformers"
   # model: "all-MiniLM-L6-v2"       # 384 dims, sin costo, OK para uso personal
 

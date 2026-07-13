@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"/c/Users/jlflo/OneDrive/DevSetup\" 2>/dev/null && echo \"---EXISTS---\" || echo \"---DEVSETUP NO EXISTE---\")",
+      "Read(//c/Users/jlflo/OneDrive/**)",
+      "PowerShell(& \"c:\\\\Users\\\\jlflo\\\\OneDrive\\\\Documentos\\\\Mis_Documentos\\\\Proyectos\\\\Coding\\\\Python\\\\Otros\\\\ClaudeSetup\\\\setup\\\\sync-skills.ps1\")",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/**)",
+      "Read(//c/Users/jlflo/.claude/skills/**)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/_build//**)",
+      "Read(//c/Users/jlflo/.claude/projects/c--Users-jlflo-OneDrive-Documentos-Mis-Documentos-Proyectos-Coding-Python-Otros-ClaudeSetup/**)",
+      "Read(//c/Users/jlflo/.claude/projects/c--Users-jlflo-OneDrive-Documentos-Mis-Documentos-Proyectos-Coding-Python-Otros-ClaudeSetup/memory/**)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Read(//c/Users/jlflo/AppData/Local/Obsidian/**)",
+      "Read(//c/Program Files/Obsidian/**)",
+      "Bash(git config *)",
+      "Bash(git init *)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/ObsidianVault/**)",
+      "Read(//c/Users/jlflo/AppData/Local/**)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config core.autocrlf false)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault symbolic-ref HEAD refs/heads/main)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault add -A)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault commit -q -m ' *)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault log --oneline)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault fetch origin -q)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault log origin/main --oneline -5)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config user.name)",
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config user.email)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\jlflo\\.claude\\projects\\c--Users-jlflo-OneDrive-Documentos-Mis-Documentos-Proyectos-Coding-Python-Otros-ClaudeSetup\\memory",
+      "c:\\Users\\jlflo\\OneDrive\\DevSetup\\ObsidianVault"
+    ]
+  }
+}

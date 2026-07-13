@@ -1,218 +1,259 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════
-#  setup-new-machine.sh — Bootstrap Graphiti en laptop nueva
+#  setup-new-machine.sh — Bootstrap Graphiti en laptop nueva (macOS/Linux)
 #
-#  Prerequisitos:
-#    - Docker Desktop instalado y corriendo
-#    - OneDrive sincronizado (DevSetup/ debe existir)
-#    - claude CLI instalado (Claude Code)
+#  ESTRATEGIA A REAL (fix auditoría A1): datos vivos en disco LOCAL
+#  (~/.local/share/graphiti), OneDrive SOLO recibe backups terminados.
+#  El .env con API keys también vive LOCAL (fix A4 — nunca en OneDrive).
+#
+#  Prerequisitos: Docker Desktop corriendo, OneDrive sincronizado, claude CLI.
 #
 #  Uso:
 #    bash setup-new-machine.sh                   # OneDrive en ~/OneDrive
 #    bash setup-new-machine.sh /ruta/a/OneDrive  # path explícito
+#    FORCE_ONEDRIVE=1 bash setup-new-machine.sh  # escape hatch Estrategia B
 # ══════════════════════════════════════════════════════════════
 
 set -euo pipefail
 ONEDRIVE="${1:-$HOME/OneDrive}"
 DEVSETUP="${ONEDRIVE}/DevSetup"
-GRAPHITI_DATA="${DEVSETUP}/graphiti-data"
-GRAPHITI_DOCKER="${DEVSETUP}/graphiti-docker"
+GRAPHITI_LOCAL="${GRAPHITI_LOCAL:-$HOME/.local/share/graphiti}"   # datos + config + .env + scripts (LOCAL)
+BACKUP_DIR="${DEVSETUP}/graphiti-data/backups"                     # lo ÚNICO de Graphiti en OneDrive
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WARNINGS=()
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; NC='\033[0m'; BOLD='\033[1m'
-
 header() { echo -e "\n${BLUE}${BOLD}▶ $1${NC}"; }
 ok()     { echo -e "  ${GREEN}[OK]${NC} $1"; }
-warn()   { echo -e "  ${YELLOW}[WARN]${NC} $1"; }
+warn()   { echo -e "  ${YELLOW}[WARN]${NC} $1"; WARNINGS+=("$1"); }
 err()    { echo -e "  ${RED}[ERR]${NC} $1"; }
 info()   { echo -e "  ${BLUE}[INFO]${NC} $1"; }
 
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD} Graphiti + FalkorDB — Setup nueva máquina${NC}"
-echo -e "${BOLD} OneDrive: ${ONEDRIVE}${NC}"
+echo -e "${BOLD} Graphiti + FalkorDB — Setup (Estrategia A)${NC}"
+echo -e "${BOLD} Datos locales : ${GRAPHITI_LOCAL}${NC}"
+echo -e "${BOLD} Backups       : ${BACKUP_DIR}${NC}"
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
 
 # ── 1. Verificar dependencias ──────────────────────────────────────────────
 header "Verificando dependencias"
 ERRORS=0
+command -v docker >/dev/null 2>&1 && ok "Docker instalado" || { err "Docker no encontrado."; ERRORS=$((ERRORS+1)); }
+docker compose version >/dev/null 2>&1 && ok "Docker Compose disponible" || { err "Docker Compose no disponible."; ERRORS=$((ERRORS+1)); }
+[ -d "${DEVSETUP}" ] || { warn "No se encontró ${DEVSETUP}. Creando..."; mkdir -p "${DEVSETUP}"; }
+[ $ERRORS -gt 0 ] && { err "Hay $ERRORS errores críticos."; exit 1; }
 
-command -v docker >/dev/null 2>&1 && ok "Docker instalado" || { err "Docker no encontrado. Instala Docker Desktop."; ERRORS=$((ERRORS+1)); }
-(docker compose version >/dev/null 2>&1 || docker-compose --version >/dev/null 2>&1) && ok "Docker Compose disponible" || { err "Docker Compose no disponible."; ERRORS=$((ERRORS+1)); }
-[ -d "${DEVSETUP}" ] && ok "OneDrive/DevSetup encontrado" || { warn "No se encontró ${DEVSETUP}. Creando..."; mkdir -p "${DEVSETUP}"; }
+# Guardia anti-OneDrive (fix A1)
+case "${GRAPHITI_LOCAL}" in
+  *OneDrive*)
+    if [ -z "${FORCE_ONEDRIVE:-}" ]; then
+      err "GRAPHITI_LOCAL apunta dentro de OneDrive — prohibido (H2, corrupción silenciosa)."
+      err "Usa FORCE_ONEDRIVE=1 solo si sabes lo que haces (Estrategia B)."
+      exit 1
+    fi ;;
+esac
 
-if [ $ERRORS -gt 0 ]; then
-  err "Hay $ERRORS errores críticos. Corrige antes de continuar."
-  exit 1
-fi
+# ── 2. Crear directorios ───────────────────────────────────────────────────
+header "Creando directorios"
+mkdir -p "${GRAPHITI_LOCAL}"/{data,config,scripts}
+mkdir -p "${BACKUP_DIR}"
+ok "Local:    ${GRAPHITI_LOCAL}/{data,config,scripts}"
+ok "OneDrive: ${BACKUP_DIR} (solo snapshots)"
 
-# ── 2. Crear estructura de directorios ────────────────────────────────────
-header "Creando directorios en OneDrive"
-mkdir -p "${GRAPHITI_DATA}/falkordb"
-mkdir -p "${GRAPHITI_DATA}/backups"
-mkdir -p "${GRAPHITI_DATA}/config"
-mkdir -p "${GRAPHITI_DOCKER}"
-ok "Directorios creados en ${GRAPHITI_DATA}"
+# ── 3. Instalar compose, config y scripts (fix A2) ────────────────────────
+header "Instalando archivos"
+DOTFILES="${DEVSETUP}/claude-dotfiles/graphiti"
+install_file() {  # $1 nombre, $2 destino
+  local src
+  for src in "${SCRIPT_DIR}" "${DOTFILES}"; do
+    if [ -f "${src}/$1" ]; then
+      cp "${src}/$1" "$2"
+      ok "$1 instalado"
+      return 0
+    fi
+  done
+  warn "$1 no encontrado (busqué en ${SCRIPT_DIR} y ${DOTFILES}). Cópialo manualmente."
+  return 1
+}
+install_file "docker-compose.yml" "${GRAPHITI_LOCAL}/" || true
+install_file "config.yaml"        "${GRAPHITI_LOCAL}/config/" || true
+HAS_BACKUP=true;  install_file "backup-graph.sh"  "${GRAPHITI_LOCAL}/scripts/" || HAS_BACKUP=false
+HAS_RESTORE=true; install_file "restore-graph.sh" "${GRAPHITI_LOCAL}/scripts/" || HAS_RESTORE=false
+chmod +x "${GRAPHITI_LOCAL}/scripts/"*.sh 2>/dev/null || true
 
-# ── 3. Copiar archivos de config desde dotfiles o descargar ───────────────
-header "Configurando archivos"
-DOTFILES="${DEVSETUP}/claude-dotfiles"
-
-# Copiar docker-compose.yml
-if [ -f "${DOTFILES}/graphiti/docker-compose.yml" ]; then
-  cp "${DOTFILES}/graphiti/docker-compose.yml" "${GRAPHITI_DOCKER}/"
-  ok "docker-compose.yml copiado desde dotfiles"
-elif [ -f "${GRAPHITI_DOCKER}/docker-compose.yml" ]; then
-  ok "docker-compose.yml ya existe"
-else
-  warn "Descargando docker-compose.yml de GitHub..."
-  curl -fsSL "https://raw.githubusercontent.com/getzep/graphiti/main/mcp_server/docker/docker-compose.falkordb.yaml" \
-    -o "${GRAPHITI_DOCKER}/docker-compose.yml" 2>/dev/null && ok "Descargado" || warn "Descarga fallida. Copia manualmente."
-fi
-
-# Copiar config.yaml
-if [ -f "${DOTFILES}/graphiti/config.yaml" ]; then
-  cp "${DOTFILES}/graphiti/config.yaml" "${GRAPHITI_DATA}/config/"
-  ok "config.yaml copiado"
-elif [ -f "${GRAPHITI_DATA}/config/config.yaml" ]; then
-  ok "config.yaml ya existe en OneDrive"
-else
-  warn "config.yaml no encontrado. Créalo manualmente en ${GRAPHITI_DATA}/config/"
-fi
-
-# ── 4. Crear .env con rutas del sistema actual ────────────────────────────
-header "Creando .env"
-ENV_FILE="${GRAPHITI_DOCKER}/.env"
-
+# ── 4. Crear .env LOCAL (fix A4: API keys nunca en OneDrive) ──────────────
+header "Creando .env (local, fuera de OneDrive)"
+ENV_FILE="${GRAPHITI_LOCAL}/.env"
 if [ -f "${ENV_FILE}" ]; then
   info ".env ya existe. No sobreescrito."
 else
+  info "Pin de versiones (auditoría A5). Consulta el tag estable actual con:"
+  info "  docker pull falkordb/falkordb:latest ; docker image ls falkordb/falkordb"
+  read -rp "  FALKORDB_VERSION (tag concreto, ej. v4.2.1 — vacío = decidir después): " FK_VER
+  read -rp "  GRAPHITI_MCP_VERSION (tag concreto — vacío = decidir después): " MCP_VER
   cat > "${ENV_FILE}" << ENVEOF
 # Auto-generado por setup-new-machine.sh en $(hostname) — $(date)
-FALKORDB_DATA_PATH=${GRAPHITI_DATA}/falkordb
-CONFIG_PATH=${GRAPHITI_DATA}/config
+# UBICACIÓN LOCAL A PROPÓSITO: contiene API keys (auditoría A4).
 
-# RELLENA ESTAS KEYS:
+# Estrategia A: datos vivos LOCALES, backups a OneDrive
+FALKORDB_DATA_PATH=${GRAPHITI_LOCAL}/data
+CONFIG_PATH=${GRAPHITI_LOCAL}/config
+BACKUP_DIR=${BACKUP_DIR}
+
+# Pins de versión (OBLIGATORIOS — el compose no arranca sin ellos)
+FALKORDB_VERSION=${FK_VER}
+GRAPHITI_MCP_VERSION=${MCP_VER}
+
+# Extracción de entidades — 3 rutas (detalle en .env.example del repo):
+#  openai = pago, óptima | gemini = GRATIS (recomendada sin costo) | groq = gratis, TPM bajo
+# La key del provider elegido es obligatoria. Nunca anthropic/haiku (H7).
 LLM_PROVIDER=openai
-ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
-
+GOOGLE_API_KEY=
+GROQ_API_KEY=
+ANTHROPIC_API_KEY=
 MODEL_NAME=gpt-4.1-mini
 SMALL_MODEL_NAME=gpt-4.1-nano
+# Ruta gemini: LLM_PROVIDER=gemini + GOOGLE_API_KEY + MODEL_NAME=gemini-2.0-flash
+#   (y en config.yaml cambia el embedder a gemini o sentence_transformers)
+# Ruta groq:   LLM_PROVIDER=groq + GROQ_API_KEY + MODEL_NAME=llama-3.3-70b-versatile
+#   + SEMAPHORE_LIMIT=2 (free tier ~6k tokens/min)
 
 FALKORDB_PASSWORD=
 SEMAPHORE_LIMIT=3
 ENVEOF
-  ok ".env creado"
-  warn "IMPORTANTE: Edita ${ENV_FILE} y agrega tus API keys antes de continuar."
-  echo ""
+  ok ".env creado en ${ENV_FILE}"
+  warn "Edita el .env: la key del provider elegido (LLM_PROVIDER) es obligatoria."
   read -rp "  ¿Editar .env ahora? [y/N] " EDIT
-  if [[ "${EDIT:-N}" =~ ^[Yy]$ ]]; then
-    "${EDITOR:-nano}" "${ENV_FILE}"
+  [[ "${EDIT:-N}" =~ ^[Yy]$ ]] && "${EDITOR:-nano}" "${ENV_FILE}"
+fi
+
+# Validación fail-fast de lo obligatorio (key según el provider elegido)
+ENV_READY=true
+PROVIDER=$(grep -E '^LLM_PROVIDER=' "${ENV_FILE}" | tail -1 | cut -d= -f2)
+case "${PROVIDER:-openai}" in
+  gemini)    KEYVAR="GOOGLE_API_KEY" ;;
+  groq)      KEYVAR="GROQ_API_KEY" ;;
+  anthropic) KEYVAR="ANTHROPIC_API_KEY"
+             warn "LLM_PROVIDER=anthropic: structured output experimental (H7) — usa openai o gemini." ;;
+  *)         KEYVAR="OPENAI_API_KEY" ;;
+esac
+for REQ in "${KEYVAR}" FALKORDB_VERSION GRAPHITI_MCP_VERSION; do
+  if grep -qE "^${REQ}=\s*$" "${ENV_FILE}"; then
+    warn "${REQ} está vacío en .env (LLM_PROVIDER=${PROVIDER:-openai}) — el stack NO se levantará hasta llenarlo."
+    ENV_READY=false
   fi
+done
+if grep -qE "^FALKORDB_DATA_PATH=.*OneDrive" "${ENV_FILE}" && [ -z "${FORCE_ONEDRIVE:-}" ]; then
+  err "FALKORDB_DATA_PATH apunta a OneDrive — prohibido (H2)."
+  exit 1
 fi
 
-# ── 5. Verificar que haya API key ─────────────────────────────────────────
-if grep -q "^OPENAI_API_KEY=$\|^ANTHROPIC_API_KEY=$" "${ENV_FILE}" 2>/dev/null; then
-  warn "Las API keys están vacías en ${ENV_FILE}."
-  warn "El servidor MCP arrancará pero fallará al procesar episodios."
-fi
-
-# ── 6. Agregar Graphiti al MCP de Claude Code ────────────────────────────
+# ── 5. Agregar Graphiti al MCP de Claude Code ────────────────────────────
 header "Configurando MCP en Claude Code"
 if command -v claude >/dev/null 2>&1; then
-  # Verificar si ya está configurado
   if claude mcp list 2>/dev/null | grep -q "graphiti"; then
     ok "MCP 'graphiti-memory' ya configurado"
   else
     claude mcp add --transport http graphiti-memory "http://localhost:8000/mcp/" -s user 2>/dev/null && \
       ok "MCP graphiti-memory agregado (scope: user)" || \
-      warn "No se pudo agregar automáticamente. Agrega manualmente:"
-    echo "         claude mcp add --transport http graphiti-memory http://localhost:8000/mcp/ -s user"
+      warn "Agrega manualmente: claude mcp add --transport http graphiti-memory http://localhost:8000/mcp/ -s user"
   fi
 else
-  warn "Claude Code CLI no encontrado. Agrega el MCP manualmente:"
-  echo "       claude mcp add --transport http graphiti-memory http://localhost:8000/mcp/ -s user"
+  warn "Claude Code CLI no encontrado. Agrega el MCP manualmente."
 fi
 
-# ── 7. Restaurar desde backup si existe ───────────────────────────────────
+# ── 5b. Sincronizar skills (OneDrive → Claude Code + plugin Cowork) ───────
+header "Sincronizando skills"
+if [ -f "${SCRIPT_DIR}/sync-skills.sh" ]; then
+  bash "${SCRIPT_DIR}/sync-skills.sh" "${ONEDRIVE}" || warn "sync-skills falló; córrelo manualmente."
+else
+  warn "sync-skills.sh no encontrado junto a este script."
+fi
+
+# ── 6. Restaurar backup (fix A3: SOLO via restore-graph, AOF-safe) ────────
 header "Verificando backups existentes"
-LATEST_BACKUP=$(ls -t "${GRAPHITI_DATA}/backups/"*.rdb 2>/dev/null | head -1 || echo "")
+STACK_UP=false
+LATEST_BACKUP=$(ls -t "${BACKUP_DIR}"/*.rdb 2>/dev/null | head -1 || echo "")
 if [ -n "${LATEST_BACKUP}" ]; then
-  BACKUP_DATE=$(basename "${LATEST_BACKUP}" | sed 's/graphiti_\(.*\)\.rdb/\1/')
-  info "Backup encontrado: ${LATEST_BACKUP} (${BACKUP_DATE})"
-  echo ""
-  read -rp "  ¿Restaurar desde este backup? [y/N] " RESTORE
-  if [[ "${RESTORE:-N}" =~ ^[Yy]$ ]]; then
-    mkdir -p "${GRAPHITI_DATA}/falkordb"
-    cp "${LATEST_BACKUP}" "${GRAPHITI_DATA}/falkordb/dump.rdb"
-    ok "Backup restaurado. FalkorDB cargará el grafo al arrancar."
+  info "Backup encontrado: $(basename "${LATEST_BACKUP}")"
+  if [ "${HAS_RESTORE}" = true ] && [ "${ENV_READY}" = true ]; then
+    read -rp "  ¿Restaurar con restore-graph.sh (verifica que los datos carguen)? [y/N] " RESTORE
+    if [[ "${RESTORE:-N}" =~ ^[Yy]$ ]]; then
+      GRAPHITI_LOCAL="${GRAPHITI_LOCAL}" bash "${GRAPHITI_LOCAL}/scripts/restore-graph.sh" "${LATEST_BACKUP}" && STACK_UP=true
+    fi
+  else
+    warn "Restore pospuesto (falta restore-graph.sh o el .env está incompleto)."
+    warn "NUNCA copies dump.rdb a mano: con AOF activo no restaura nada (A3)."
   fi
 else
   info "No hay backups previos. Se iniciará con grafo vacío."
 fi
 
-# ── 8. Levantar containers ────────────────────────────────────────────────
-header "Levantando Docker containers"
-cd "${GRAPHITI_DOCKER}"
-docker compose up -d && ok "Containers levantados" || { err "Error al levantar containers."; exit 1; }
-
-# ── 9. Health check ───────────────────────────────────────────────────────
-header "Verificando health (espera 10s...)"
-sleep 10
-
-FALKORDB_OK=false
-MCP_OK=false
-
-if docker exec graphiti-falkordb redis-cli ping 2>/dev/null | grep -q PONG; then
-  ok "FalkorDB respondiendo"
-  FALKORDB_OK=true
-else
-  warn "FalkorDB no responde aún. Verifica: docker logs graphiti-falkordb"
+# ── 7. Levantar containers ────────────────────────────────────────────────
+if [ "${STACK_UP}" = false ]; then
+  header "Levantando Docker containers"
+  if [ "${ENV_READY}" = true ]; then
+    docker compose --env-file "${ENV_FILE}" -f "${GRAPHITI_LOCAL}/docker-compose.yml" up -d \
+      && { ok "Containers levantados"; STACK_UP=true; } \
+      || err "Error al levantar containers."
+  else
+    warn "Stack NO levantado: completa el .env y corre:"
+    info "docker compose --env-file ${ENV_FILE} -f ${GRAPHITI_LOCAL}/docker-compose.yml up -d"
+  fi
 fi
 
-if curl -sf "http://localhost:8000/mcp/" >/dev/null 2>&1 || \
-   curl -sf "http://localhost:8000/" >/dev/null 2>&1; then
-  ok "MCP Server respondiendo en http://localhost:8000/mcp/"
-  MCP_OK=true
-else
-  warn "MCP Server no responde aún. Espera 30s más y verifica: docker logs graphiti-mcp-server"
+# ── 8. Health check ───────────────────────────────────────────────────────
+if [ "${STACK_UP}" = true ]; then
+  header "Verificando health (espera 10s...)"
+  sleep 10
+  docker exec graphiti-falkordb redis-cli ping 2>/dev/null | grep -q PONG \
+    && ok "FalkorDB respondiendo" \
+    || warn "FalkorDB no responde aún: docker logs graphiti-falkordb"
+  (curl -sf "http://localhost:8000/mcp/" >/dev/null 2>&1 || curl -sf "http://localhost:8000/" >/dev/null 2>&1) \
+    && ok "MCP Server respondiendo en http://localhost:8000/mcp/" \
+    || warn "MCP Server no responde aún: docker logs graphiti-mcp-server"
 fi
 
-# ── 10. Configurar backup automático ─────────────────────────────────────
+# ── 9. Backup automático cada 4h (cron) ───────────────────────────────────
 header "Configurando backup automático"
-BACKUP_SCRIPT="${DEVSETUP}/graphiti-docker/backup-graph.sh"
-if [ -f "${DOTFILES}/graphiti/scripts/backup-graph.sh" ]; then
-  cp "${DOTFILES}/graphiti/scripts/backup-graph.sh" "${BACKUP_SCRIPT}"
-  chmod +x "${BACKUP_SCRIPT}"
-fi
-
-if command -v crontab >/dev/null 2>&1; then
-  # Agregar al cron si no existe ya
-  CRON_LINE="0 */4 * * * ONEDRIVE_PATH=${ONEDRIVE} ${BACKUP_SCRIPT}"
+BACKUP_SCRIPT="${GRAPHITI_LOCAL}/scripts/backup-graph.sh"
+if [ "${HAS_BACKUP}" = true ] && command -v crontab >/dev/null 2>&1; then
+  CRON_LINE="0 */4 * * * ONEDRIVE_PATH=${ONEDRIVE} ${BACKUP_SCRIPT} >> ${GRAPHITI_LOCAL}/backup.log 2>&1"
   if ! crontab -l 2>/dev/null | grep -q "backup-graph"; then
     (crontab -l 2>/dev/null; echo "${CRON_LINE}") | crontab -
-    ok "Cron configurado: backup cada 4 horas"
+    ok "Cron configurado: backup cada 4 horas (log: ${GRAPHITI_LOCAL}/backup.log)"
   else
     ok "Cron para backup ya existe"
   fi
+else
+  [ "${HAS_BACKUP}" = true ] || { err "SIN BACKUPS AUTOMÁTICOS: backup-graph.sh no instalado."; WARNINGS+=("CRÍTICO: sin backup automático"); }
+  command -v crontab >/dev/null 2>&1 || warn "crontab no disponible — configura el backup con launchd/systemd."
 fi
 
 # ── Resumen final ─────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD} Setup ${FALKORDB_OK && $MCP_OK && echo "completado ✓" || echo "con advertencias ⚠"}${NC}"
+if [ ${#WARNINGS[@]} -eq 0 ]; then
+  echo -e "${BOLD}${GREEN} Setup completado sin advertencias${NC}"
+else
+  echo -e "${BOLD}${YELLOW} Setup completado con ${#WARNINGS[@]} advertencia(s):${NC}"
+  for w in "${WARNINGS[@]}"; do echo -e "   ${YELLOW}• ${w}${NC}"; done
+fi
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
 echo ""
-echo "  FalkorDB Browser UI : http://localhost:3000"
+echo "  FalkorDB Browser UI : http://localhost:3000 (solo esta máquina)"
 echo "  MCP endpoint        : http://localhost:8000/mcp/"
-echo "  Datos del grafo     : ${GRAPHITI_DATA}/falkordb/"
-echo "  Backups             : ${GRAPHITI_DATA}/backups/"
+echo "  Datos (LOCAL)       : ${GRAPHITI_LOCAL}/data/"
+echo "  .env (LOCAL)        : ${ENV_FILE}"
+echo "  Backups (OneDrive)  : ${BACKUP_DIR}"
 echo ""
 echo "  Próximos pasos:"
-echo "  1. Edita ${ENV_FILE} si aún no tienes las API keys."
-echo "  2. Reinicia si cambias .env:"
-echo "       cd ${GRAPHITI_DOCKER} && docker compose restart graphiti-mcp"
-echo "  3. Copia .graphiti.json a cada proyecto (del template en config/)."
-echo "  4. En CLAUDE.md de cada proyecto añade la sección ## Memory."
-echo "  5. En Claude Code verifica: /mcp list"
+echo "  1. Completa el .env si quedó incompleto (OPENAI_API_KEY, pins de versión)."
+echo "  2. SIMULACRO DE RESTORE (auditoría A3): en cuanto haya datos reales,"
+echo "     prueba restore-graph.sh — un backup no probado no existe."
+echo "  3. Copia .graphiti.json a cada proyecto."
+echo "  4. Cowork: sube claude-skills/_build/dev-skills.zip en Customize > Plugins."
+echo "  5. Al cambiar de laptop: docker compose stop → backup-graph.sh → sync."
 echo ""
