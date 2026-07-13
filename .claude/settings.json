@@ -26,7 +26,19 @@
       "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault fetch origin -q)",
       "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault log origin/main --oneline -5)",
       "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config user.name)",
-      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config user.email)"
+      "Bash(git -C /c/Users/jlflo/OneDrive/DevSetup/ObsidianVault config user.email)",
+      "Bash(cp -r /c/Users/jlflo/OneDrive/Documentos/Mis_Documentos/Proyectos/Coding/Python/Otros/ClaudeSetup/setup/skills/claude-code/project-onboard /c/Users/jlflo/OneDrive/DevSetup/claude-skills/claude-code/)",
+      "Bash(cp -r /c/Users/jlflo/OneDrive/Documentos/Mis_Documentos/Proyectos/Coding/Python/Otros/ClaudeSetup/setup/skills/claude-code/project-resume /c/Users/jlflo/OneDrive/DevSetup/claude-skills/claude-code/)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/claude-code/**)",
+      "PowerShell(& \"c:\\\\Users\\\\jlflo\\\\OneDrive\\\\Documentos\\\\Mis_Documentos\\\\Proyectos\\\\Coding\\\\Python\\\\Otros\\\\ClaudeSetup\\\\setup\\\\sync-skills.ps1\" -NoCoworkBuild)",
+      "Read(//c/Users/jlflo/.claude/skills/project-onboard/**)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/cowork/**)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/**)",
+      "Read(//c/Users/jlflo/Downloads/**)",
+      "Bash(cp -r /c/Users/jlflo/OneDrive/Documentos/Mis_Documentos/Proyectos/Coding/Python/Otros/ClaudeSetup/setup/skills/cowork/project-resume /c/Users/jlflo/OneDrive/DevSetup/claude-skills/cowork/)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/_build/dev-skills/skills/**)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/_build/dev-skills/skills/project-resume/**)",
+      "Read(//c/Users/jlflo/OneDrive/DevSetup/claude-skills/_build/dev-skills/.claude-plugin/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\jlflo\\.claude\\projects\\c--Users-jlflo-OneDrive-Documentos-Mis-Documentos-Proyectos-Coding-Python-Otros-ClaudeSetup\\memory",

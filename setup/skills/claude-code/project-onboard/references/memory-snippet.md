@@ -1,9 +1,7 @@
-<!-- Snippet para el CLAUDE.md de cada proyecto (Claude Code). ~230 tokens (H4).
-     Gemelo Cowork: cowork-project-instructions.md
-     ⚠ COPIA SINCRONIZADA de skills/claude-code/project-onboard/references/
-       memory-snippet.md (la skill lo pega automáticamente) — editar ambas a la vez.
-     Detalle de qué/cómo guardar: skill `memory-keeper` (se carga sola al guardar).
-     Enforcement determinista: hooks/validate-graphiti-group-id.py -->
+<!-- Insertar en el CLAUDE.md del proyecto. ~230 tokens (H4).
+     Reemplaza TODAS las apariciones de <project-name> por el nombre real.
+     ⚠ COPIA SINCRONIZADA de setup/memory-instructions.md — si editas una,
+     actualiza la otra (mismo contenido, dos puntos de consumo). -->
 
 ## Active Project: `<project-name>`   ← reemplazar al copiar
 
