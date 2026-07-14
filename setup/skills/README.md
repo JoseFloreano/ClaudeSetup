@@ -23,6 +23,10 @@ OneDrive/DevSetup/claude-skills/
 Esta carpeta se crea automáticamente la primera vez que corres `sync-skills.ps1`
 (seed desde `setup/skills/` del repo). OneDrive la replica a todas tus laptops.
 
+> **Sin OneDrive (single-laptop):** los scripts caen automáticamente a
+> `%USERPROFILE%\DevSetup\claude-skills` (`~/DevSetup/claude-skills`) — todo lo
+> demás de este README aplica igual. Ver "Modo single-laptop" en `setup/README.md`.
+
 ## Cómo llega cada skill a cada producto
 
 | Producto | Mecanismo | Qué recibe |

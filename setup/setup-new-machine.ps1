@@ -13,11 +13,23 @@
 
 param(
     [string]$OneDrivePath = $(if ($env:OneDrive) { $env:OneDrive } else { "$env:USERPROFILE\OneDrive" }),
+    [switch]$Local = $false,          # modo single-laptop: DevSetup en el home, sin OneDrive
     [switch]$SkipRestore = $false,
     [switch]$ForceOneDrive = $false   # escape hatch para Estrategia B (bajo tu riesgo)
 )
 
 $ErrorActionPreference = "Stop"
+
+# ── Modo de sincronización ────────────────────────────────────────────────
+# multi-laptop (default): DevSetup vive en OneDrive → skills/backups viajan solos.
+# single-laptop (-Local o sin OneDrive): DevSetup vive en %USERPROFILE%\DevSetup.
+#   Todo lo demás es idéntico; la durabilidad extra la da el remote git del vault.
+if (-not $Local -and -not (Test-Path $OneDrivePath)) {
+    Write-Host "[INFO] OneDrive no encontrado en $OneDrivePath — cambiando a modo LOCAL (single-laptop)." -ForegroundColor Yellow
+    $Local = $true
+}
+if ($Local) { $OneDrivePath = $env:USERPROFILE }
+$SyncMode      = if ($Local) { "single-laptop (local, sin OneDrive)" } else { "multi-laptop (OneDrive)" }
 $DevSetup      = "$OneDrivePath\DevSetup"
 $GraphitiLocal = "$env:LOCALAPPDATA\graphiti"       # datos + config + .env + scripts (LOCAL)
 $BackupDir     = "$DevSetup\graphiti-data\backups"  # lo ÚNICO de Graphiti en OneDrive
@@ -39,6 +51,7 @@ function ConvertTo-DockerPath { param($p)
 
 Write-Host "`n════════════════════════════════════════════════════" -ForegroundColor White
 Write-Host " Graphiti + FalkorDB — Setup Windows (Estrategia A)" -ForegroundColor White
+Write-Host " Modo          : $SyncMode" -ForegroundColor White
 Write-Host " Datos locales : $GraphitiLocal" -ForegroundColor White
 Write-Host " Backups       : $BackupDir" -ForegroundColor White
 Write-Host "════════════════════════════════════════════════════`n" -ForegroundColor White
@@ -264,6 +277,11 @@ Write-Info ".env (LOCAL)        : $envFile"
 Write-Info "Backups (OneDrive)  : $BackupDir"
 Write-Host ""
 Write-Info "Próximos pasos:"
+if ($Local) {
+    Write-Warn "Modo single-laptop: los backups quedan en el MISMO disco. Protegen contra"
+    Write-Warn "corrupción del grafo, no contra falla del disco — agenda una copia periódica"
+    Write-Warn "de $BackupDir a un disco externo o nube, y usa remote git para el vault."
+}
 Write-Info "1. Completa el .env si quedó incompleto (OPENAI_API_KEY, pins de versión)"
 Write-Info "2. SIMULACRO DE RESTORE (auditoría A3): en cuanto haya datos reales,"
 Write-Info "   prueba restore-graph.ps1 con un backup — un backup no probado no existe"

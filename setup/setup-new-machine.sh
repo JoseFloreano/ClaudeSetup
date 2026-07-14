@@ -16,6 +16,17 @@
 
 set -euo pipefail
 ONEDRIVE="${1:-$HOME/OneDrive}"
+
+# ── Modo de sincronización ────────────────────────────────────────────────
+# multi-laptop (default): DevSetup vive en OneDrive → skills/backups viajan solos.
+# single-laptop (LOCAL=1 o sin OneDrive): DevSetup vive en ~/DevSetup.
+#   Todo lo demás es idéntico; la durabilidad extra la da el remote git del vault.
+if [ -n "${LOCAL:-}" ] || [ ! -d "${ONEDRIVE}" ]; then
+  [ -d "${ONEDRIVE}" ] || echo "[INFO] OneDrive no encontrado en ${ONEDRIVE} — modo LOCAL (single-laptop)."
+  ONEDRIVE="$HOME"
+  LOCAL=1
+fi
+SYNC_MODE=$([ -n "${LOCAL:-}" ] && echo "single-laptop (local, sin OneDrive)" || echo "multi-laptop (OneDrive)")
 DEVSETUP="${ONEDRIVE}/DevSetup"
 GRAPHITI_LOCAL="${GRAPHITI_LOCAL:-$HOME/.local/share/graphiti}"   # datos + config + .env + scripts (LOCAL)
 BACKUP_DIR="${DEVSETUP}/graphiti-data/backups"                     # lo ÚNICO de Graphiti en OneDrive
@@ -32,6 +43,7 @@ info()   { echo -e "  ${BLUE}[INFO]${NC} $1"; }
 
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
 echo -e "${BOLD} Graphiti + FalkorDB — Setup (Estrategia A)${NC}"
+echo -e "${BOLD} Modo          : ${SYNC_MODE}${NC}"
 echo -e "${BOLD} Datos locales : ${GRAPHITI_LOCAL}${NC}"
 echo -e "${BOLD} Backups       : ${BACKUP_DIR}${NC}"
 echo -e "${BOLD}════════════════════════════════════════════════════${NC}"
@@ -249,6 +261,12 @@ echo "  Datos (LOCAL)       : ${GRAPHITI_LOCAL}/data/"
 echo "  .env (LOCAL)        : ${ENV_FILE}"
 echo "  Backups (OneDrive)  : ${BACKUP_DIR}"
 echo ""
+if [ -n "${LOCAL:-}" ]; then
+  echo -e "  ${YELLOW}Modo single-laptop: los backups quedan en el MISMO disco. Protegen contra${NC}"
+  echo -e "  ${YELLOW}corrupción del grafo, no contra falla del disco — agenda copia periódica de${NC}"
+  echo -e "  ${YELLOW}${BACKUP_DIR} a disco externo/nube, y usa remote git para el vault.${NC}"
+  echo ""
+fi
 echo "  Próximos pasos:"
 echo "  1. Completa el .env si quedó incompleto (OPENAI_API_KEY, pins de versión)."
 echo "  2. SIMULACRO DE RESTORE (auditoría A3): en cuanto haya datos reales,"

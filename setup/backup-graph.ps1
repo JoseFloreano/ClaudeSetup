@@ -22,6 +22,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Sin OneDrive → backups en ~\DevSetup (modo single-laptop; mismo layout)
+if (-not (Test-Path $OneDrivePath)) { $OneDrivePath = $env:USERPROFILE }
 $BackupDir = Join-Path $OneDrivePath "DevSetup\graphiti-data\backups"
 $Hostname  = $env:COMPUTERNAME
 

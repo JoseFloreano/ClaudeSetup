@@ -26,9 +26,15 @@ function Write-OK   { param($m) Write-Host "  [OK] $m"   -ForegroundColor Green 
 function Write-Warn { param($m) Write-Host "  [WARN] $m" -ForegroundColor Yellow }
 function Write-Info { param($m) Write-Host "  [INFO] $m" -ForegroundColor Cyan }
 
-# ── Resolver la carpeta de skills en OneDrive ─────────────────────────────
+# ── Resolver la carpeta de skills (OneDrive o local single-laptop) ────────
 if (-not $SkillsRoot) {
-    $od = if ($env:OneDrive) { $env:OneDrive } else { "$env:USERPROFILE\OneDrive" }
+    $od = if ($env:OneDrive -and (Test-Path $env:OneDrive)) { $env:OneDrive }
+          elseif (Test-Path "$env:USERPROFILE\OneDrive") { "$env:USERPROFILE\OneDrive" }
+          else { $null }
+    if (-not $od) {
+        $od = $env:USERPROFILE
+        Write-Info "OneDrive no encontrado — usando raíz LOCAL (single-laptop): $od\DevSetup\claude-skills"
+    }
     $SkillsRoot = Join-Path $od "DevSetup\claude-skills"
 }
 

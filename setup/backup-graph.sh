@@ -21,6 +21,8 @@ set -euo pipefail
 
 CONTAINER_NAME="${CONTAINER_NAME:-graphiti-falkordb}"
 ONEDRIVE_PATH="${1:-${ONEDRIVE_PATH:-$HOME/OneDrive}}"
+# Sin OneDrive → backups en ~/DevSetup (modo single-laptop; mismo layout)
+[ -d "${ONEDRIVE_PATH}" ] || ONEDRIVE_PATH="$HOME"
 BACKUP_DIR="${BACKUP_DIR:-${ONEDRIVE_PATH}/DevSetup/graphiti-data/backups}"
 MAX_BACKUPS="${MAX_BACKUPS:-15}"
 HOST="$(hostname)"

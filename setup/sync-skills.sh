@@ -20,6 +20,11 @@
 
 set -euo pipefail
 ONEDRIVE="${1:-$HOME/OneDrive}"
+# Sin OneDrive → raíz local (modo single-laptop)
+if [ ! -d "${ONEDRIVE}" ]; then
+  echo "[INFO] OneDrive no encontrado — usando raíz LOCAL (single-laptop): ${HOME}/DevSetup/claude-skills"
+  ONEDRIVE="${HOME}"
+fi
 SKILLS_ROOT="${ONEDRIVE}/DevSetup/claude-skills"
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}[OK]${NC} $1"; }

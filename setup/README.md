@@ -4,21 +4,14 @@ Setup compartido entre Claude Code y Cowork, diseñado para 2-3 laptops
 sincronizadas via OneDrive. Ver análisis de división de trabajo entre
 productos en `docs/08-COWORK-VS-CLAUDE-CODE.md`.
 
-> **Enfoque actual (julio 2026):** el setup arranca con **skills + memoria
-> durable** — vault de Obsidian vía skills (`adr-writer`/`memory-keeper`) y
-> markdown en OneDrive, sin API keys ni Docker, cubierto por la suscripción de
-> Claude. **Graphiti + FalkorDB queda como OPCIONAL / pospuesto para el futuro**
-> (sección "Graphiti + FalkorDB" más abajo): se monta en una tarde el día que
-> se extrañe el razonamiento temporal ("¿qué usábamos en marzo?").
-
 ## Componentes de este directorio
 
 | Componente | Archivos | Aplica a |
 |-----------|----------|----------|
 | **Skills modulares** (carpeta única en OneDrive, dividida en shared / claude-code / cowork) | `skills/` (seed + template + README), `sync-skills.ps1/.sh` | Ambos |
 | **Memoria por proyecto** (aislamiento estricto anti-alucinación) | `memory-instructions.md` (snippet CLAUDE.md ~230 tokens), `cowork-project-instructions.md` (Cowork), skill `memory-keeper`, `graphiti-project-template.json` | Ambos |
-| **Enforcement del aislamiento** (garantía determinista, no solo instrucciones) | `hooks/validate-graphiti-group-id.py` + `hooks/README.md` | Claude Code (solo con Graphiti activo) |
-| **Graphiti + FalkorDB** ⏸️ *opcional — pospuesto* (memoria temporal, resto de este README) | `docker-compose.yml`, `config.yaml`, `.env.example`, `backup-graph.ps1/.sh`, `restore-graph.ps1/.sh` | Claude Code (Cowork solo vía puente del desktop app) |
+| **Enforcement del aislamiento** (garantía determinista, no solo instrucciones) | `hooks/validate-graphiti-group-id.py` + `hooks/README.md` | Claude Code |
+| **Graphiti + FalkorDB** (memoria temporal, resto de este README) | `docker-compose.yml`, `config.yaml`, `.env.example`, `backup-graph.ps1/.sh`, `restore-graph.ps1/.sh` | Claude Code (Cowork solo vía puente del desktop app) |
 | **Bootstrap laptop nueva** | `setup-new-machine.ps1/.sh` (incluye sync de skills y tareas programadas de backup) | Ambos |
 
 ### Skills: el flujo corto
@@ -30,11 +23,38 @@ OneDrive/DevSetup/claude-skills/{shared,claude-code,cowork}   ← fuente de verd
 Skill nueva: carpeta + SKILL.md + re-correr sync. Detalles: skills/README.md
 ```
 
+### Modo single-laptop (sin OneDrive)
+
+Para quien trabaja en **una sola laptop** o no usa OneDrive: todo el setup
+funciona igual con la raíz `DevSetup/` en el home en vez de OneDrive.
+
+```
+Activación:  setup-new-machine.ps1 -Local     |  LOCAL=1 bash setup-new-machine.sh
+             (o automático: si no existe la carpeta de OneDrive, los scripts
+              caen solos a modo local y lo avisan)
+
+Qué cambia:                      multi-laptop            single-laptop
+  Raíz DevSetup                  OneDrive\DevSetup\      %USERPROFILE%\DevSetup\ (~/DevSetup)
+  Skills (claude-skills/)        viajan por OneDrive     misma carpeta, local
+  Backups del grafo              a OneDrive              a ~\DevSetup\graphiti-data\backups
+  Vault de Obsidian              OneDrive + git remote   local + git remote (GitHub) ← OBLIGATORIO aquí
+
+Qué NO cambia: datos vivos de FalkorDB (siempre locales), .env local, hooks,
+skills, memoria por proyecto, plugin de Cowork, scripts de backup/restore.
+```
+
+⚠️ **La advertencia importante del modo local:** los backups del grafo quedan
+en el mismo disco que los datos — protegen contra corrupción, no contra falla
+del disco. Compensa con: (1) remote git del vault en GitHub (aquí deja de ser
+opcional), y (2) copia periódica de `DevSetup/graphiti-data/backups/` a disco
+externo o nube. Migrar a multi-laptop después es trivial: mueve `~/DevSetup/`
+dentro de OneDrive y re-corre el setup.
+
 ### Memoria por proyecto: la regla de oro
 
-Todo acceso a memoria (vault siempre; Graphiti cuando esté activo) va SIEMPRE
-filtrado al proyecto activo + `dev-global`. Nunca consultar ni escribir memoria
-de otro proyecto — es la defensa principal contra alucinaciones cross-proyecto. El snippet
+Todo acceso a memoria (Graphiti y vault) va SIEMPRE filtrado al proyecto activo
++ `dev-global`. Nunca consultar ni escribir memoria de otro proyecto — es la
+defensa principal contra alucinaciones cross-proyecto. El snippet
 `memory-instructions.md` (Code) y `cowork-project-instructions.md` (Cowork)
 implementan la misma regla en ambos productos; reemplaza `<project-name>` al
 copiarlos.
