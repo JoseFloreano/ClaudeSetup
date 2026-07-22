@@ -18,9 +18,9 @@ aislamiento activo.
 
 ## Requisitos
 
-- Vault en `OneDrive/DevSetup/ObsidianVault/` (Windows:
-  `%USERPROFILE%\OneDrive\DevSetup\ObsidianVault`). Si no existe, PARA y avisa:
-  falta montar el vault.
+- Vault en `DevSetup/ObsidianVault/`, bajo OneDrive (multi-laptop) o bajo el
+  home / `%USERPROFILE%` (single-laptop) — usa la raíz que exista. Si no hay
+  vault en ninguna de las dos, PARA y avisa: falta montar el vault.
 - MCP `graphiti-memory` — **opcional**: si no está, omite el paso 6 sin avisar error.
 
 ## Pasos

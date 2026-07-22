@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════
 #  sync-skills.ps1 — Sincroniza skills desde OneDrive a Claude Code
 #                    y empaqueta el plugin dev-skills para Cowork
 #
@@ -28,9 +28,11 @@ function Write-Info { param($m) Write-Host "  [INFO] $m" -ForegroundColor Cyan }
 
 # ── Resolver la carpeta de skills (OneDrive o local single-laptop) ────────
 if (-not $SkillsRoot) {
-    $od = if ($env:OneDrive -and (Test-Path $env:OneDrive)) { $env:OneDrive }
-          elseif (Test-Path "$env:USERPROFILE\OneDrive") { "$env:USERPROFILE\OneDrive" }
-          else { $null }
+    # B2 (doc 11): if-como-expresión con elseif en línea nueva NO parsea en PS —
+    # el salto de línea cierra la expresión. Forma de sentencia, siempre.
+    $od = $null
+    if ($env:OneDrive -and (Test-Path $env:OneDrive)) { $od = $env:OneDrive }
+    elseif (Test-Path "$env:USERPROFILE\OneDrive") { $od = "$env:USERPROFILE\OneDrive" }
     if (-not $od) {
         $od = $env:USERPROFILE
         Write-Info "OneDrive no encontrado — usando raíz LOCAL (single-laptop): $od\DevSetup\claude-skills"
@@ -125,14 +127,32 @@ if (-not $NoCoworkBuild) {
         Copy-Item $coworkSkills[$name] (Join-Path $skillsDir $name) -Recurse
     }
 
-    @{ name = "dev-skills"
-       description = "Skills personales de desarrollo (sincronizadas desde OneDrive/DevSetup/claude-skills)"
+    # B4 (doc 11): Out-File -Encoding UTF8 en PS 5.1 escribe BOM y RFC 8259 lo
+    # prohíbe en JSON — el validador de plugins de Cowork lo rechaza. Sin BOM:
+    $manifestJson = @{ name = "dev-skills"
+       description = "Skills personales de desarrollo (sincronizadas desde DevSetup/claude-skills)"
        version = (Get-Date -Format 'yyyy.MM.dd')
-    } | ConvertTo-Json | Out-File (Join-Path $pluginDir ".claude-plugin\plugin.json") -Encoding UTF8
+    } | ConvertTo-Json
+    [IO.File]::WriteAllText((Join-Path $pluginDir ".claude-plugin\plugin.json"), $manifestJson,
+        (New-Object System.Text.UTF8Encoding($false)))
 
+    # B3 (doc 11): Compress-Archive en PS 5.1 escribe '\' en las rutas del zip
+    # (el spec ZIP exige '/'; Cowork rechaza el archivo). Zip manual con '/'.
+    # Verificado además: el plugin root va en la RAÍZ del zip, sin carpeta envolvente.
     $zipPath = Join-Path $buildRoot "dev-skills.zip"
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-    Compress-Archive -Path $pluginDir -DestinationPath $zipPath
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::Open($zipPath, 'Create')
+    try {
+        Get-ChildItem $pluginDir -Recurse -File | ForEach-Object {
+            $rel   = $_.FullName.Substring(([string]$pluginDir).Length).TrimStart('\', '/')
+            $entry = $zip.CreateEntry(($rel -replace '\\', '/'), 'Optimal')
+            $out   = $entry.Open()
+            $bytes = [IO.File]::ReadAllBytes($_.FullName)
+            $out.Write($bytes, 0, $bytes.Length)
+            $out.Dispose()
+        }
+    } finally { $zip.Dispose() }
     Write-OK "$($coworkSkills.Count) skills → $zipPath"
     Write-Info "Instalar/actualizar en Cowork: desktop app → Customize → Plugins → subir dev-skills.zip"
 }

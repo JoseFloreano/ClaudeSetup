@@ -2,7 +2,7 @@
 
 Setup completo de Claude Code con memoria persistente, grafos de conocimiento y skills agénticos, diseñado para funcionar en 2-3 laptops con múltiples cuentas de Claude, sincronizado en OneDrive.
 
-> **Antes de tocar nada:** lee [`docs/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md`](./docs/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md). Son 10 datos que cambian decisiones de arquitectura y evitan errores costosos.
+> **Antes de tocar nada:** lee [`docs/arquitectura-memoria/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md`](./docs/arquitectura-memoria/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md). Son 10 datos que cambian decisiones de arquitectura y evitan errores costosos.
 
 ---
 
@@ -193,7 +193,7 @@ cp setup/docker/.env.example ~/graphiti-docker/.env
 **Editar `~/graphiti-docker/.env`** con tus valores reales:
 
 ```env
-# Datos en disco local (NO en OneDrive — ver docs/04 para el motivo)
+# Datos en disco local (NO en OneDrive — ver docs/arquitectura-memoria/04 para el motivo)
 FALKORDB_DATA_PATH=./data
 CONFIG_PATH=./config
 
@@ -469,7 +469,7 @@ OneDrive/
         └── backups/              ← snapshots .rdb con timestamp (datos del grafo)
 ```
 
-Los datos vivos de FalkorDB van en **disco local** (`~/graphiti-docker/data/`), no en OneDrive. Solo los backups `.rdb` van a OneDrive. Ver [`docs/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md`](./docs/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md) para el detalle de por qué.
+Los datos vivos de FalkorDB van en **disco local** (`~/graphiti-docker/data/`), no en OneDrive. Solo los backups `.rdb` van a OneDrive. Ver [`docs/arquitectura-memoria/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md`](./docs/arquitectura-memoria/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md) para el detalle de por qué.
 
 ---
 
@@ -477,11 +477,11 @@ Los datos vivos de FalkorDB van en **disco local** (`~/graphiti-docker/data/`), 
 
 | Documento                                                                                              | Cuándo leerlo                         |
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| [`docs/00-INDICE-Y-RESUMEN-EJECUTIVO.md`](./docs/00-INDICE-Y-RESUMEN-EJECUTIVO.md)                     | Visión general de la arquitectura     |
-| [`docs/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md`](./docs/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md) | Antes de cualquier decisión de config |
-| [`docs/01-OBSIDIAN-MEMORIA-EXTERNA.md`](./docs/01-OBSIDIAN-MEMORIA-EXTERNA.md)                         | Setup del vault en detalle            |
-| [`docs/02-GRAFOS-VS-MARKDOWN.md`](./docs/02-GRAFOS-VS-MARKDOWN.md)                                     | Por qué esta arquitectura y no otra   |
-| [`docs/03-GRAPHITI-FALKORDB-MEMORIA-TEMPORAL.md`](./docs/03-GRAPHITI-FALKORDB-MEMORIA-TEMPORAL.md)     | Graphiti a fondo                      |
-| [`docs/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md`](./docs/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md) | Estrategias A/B/C de sync             |
-| [`docs/05-SKILLS-FRAMEWORKS-AGENTICOS.md`](./docs/05-SKILLS-FRAMEWORKS-AGENTICOS.md)                   | MCPs, Superpowers, subagents          |
-| [`docs/06-ARQUITECTURA-FINAL-RECOMENDADA.md`](./docs/06-ARQUITECTURA-FINAL-RECOMENDADA.md)             | Plan de implementación por fases      |
+| [`docs/arquitectura-memoria/00-INDICE-Y-RESUMEN-EJECUTIVO.md`](./docs/arquitectura-memoria/00-INDICE-Y-RESUMEN-EJECUTIVO.md)                     | Visión general de la arquitectura     |
+| [`docs/arquitectura-memoria/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md`](./docs/arquitectura-memoria/07-HALLAZGOS-CRITICOS-REFERENCIA-RAPIDA.md) | Antes de cualquier decisión de config |
+| [`docs/arquitectura-memoria/01-OBSIDIAN-MEMORIA-EXTERNA.md`](./docs/arquitectura-memoria/01-OBSIDIAN-MEMORIA-EXTERNA.md)                         | Setup del vault en detalle            |
+| [`docs/arquitectura-memoria/02-GRAFOS-VS-MARKDOWN.md`](./docs/arquitectura-memoria/02-GRAFOS-VS-MARKDOWN.md)                                     | Por qué esta arquitectura y no otra   |
+| [`docs/arquitectura-memoria/03-GRAPHITI-FALKORDB-MEMORIA-TEMPORAL.md`](./docs/arquitectura-memoria/03-GRAPHITI-FALKORDB-MEMORIA-TEMPORAL.md)     | Graphiti a fondo                      |
+| [`docs/arquitectura-memoria/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md`](./docs/arquitectura-memoria/04-ONEDRIVE-SINCRONIZACION-MULTI-LAPTOP.md) | Estrategias A/B/C de sync             |
+| [`docs/arquitectura-memoria/05-SKILLS-FRAMEWORKS-AGENTICOS.md`](./docs/arquitectura-memoria/05-SKILLS-FRAMEWORKS-AGENTICOS.md)                   | MCPs, Superpowers, subagents          |
+| [`docs/arquitectura-memoria/06-ARQUITECTURA-FINAL-RECOMENDADA.md`](./docs/arquitectura-memoria/06-ARQUITECTURA-FINAL-RECOMENDADA.md)             | Plan de implementación por fases      |

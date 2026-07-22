@@ -120,7 +120,9 @@ EOF
 
   if command -v zip >/dev/null 2>&1; then
     rm -f "${BUILD}/dev-skills.zip"
-    (cd "${BUILD}" && zip -qr dev-skills.zip dev-skills)
+    # Doc 11 (B3/estructura): el plugin root va en la RAÍZ del zip, sin carpeta
+    # envolvente — Cowork rechaza el zip con wrapper "dev-skills/".
+    (cd "${PLUGIN}" && zip -qr "${BUILD}/dev-skills.zip" .)
     ok "${#SKILLS[@]} skills → ${BUILD}/dev-skills.zip"
   else
     ok "${#SKILLS[@]} skills → ${PLUGIN}/ (instala 'zip' para generar el .zip)"

@@ -65,9 +65,11 @@ directorios/listados abiertos, headers de seguridad ausentes.
 
 ## A06 — Vulnerable and Outdated Components
 
-Dependencias con CVEs conocidos. (Ver skill `dependency-audit` para el escaneo
-automatizado con npm audit / pip-audit.) En revisión de código: señala libs sin
-mantenimiento o versiones muy atrasadas en manejo de auth/crypto/parsing.
+Dependencias con CVEs conocidos. (Ver skill `dependency-audit` — solo disponible
+en Claude Code, requiere toolchain local — para el escaneo automatizado con
+npm audit / pip-audit; en Cowork limítate a señalar lo visible en el código.)
+En revisión de código: señala libs sin mantenimiento o versiones muy atrasadas
+en manejo de auth/crypto/parsing.
 
 ## A07 — Identification and Authentication Failures
 

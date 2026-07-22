@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════
 #  restore-graph.ps1 — Restauración CORRECTA de un backup (Windows)
 #
 #  Por qué existe (auditoría A3): el compose corre con --appendonly yes.

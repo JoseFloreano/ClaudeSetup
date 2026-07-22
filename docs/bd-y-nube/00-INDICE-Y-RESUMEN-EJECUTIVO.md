@@ -12,6 +12,12 @@
 | # | Documento | Tema central |
 |---|-----------|--------------|
 | 01 | [Estrategias de Uso con Claude](./01-ESTRATEGIAS-DE-USO-CON-CLAUDE.md) | Las 5 estrategias que estructuran toda la subserie |
+| 02 | *(pendiente)* Bases de datos | Skills y MCPs de BD — referenciado desde el doc 01 |
+| 03 | *(pendiente)* Big data / pipelines | dbt, warehouses, validación en vivo |
+| 04 | *(pendiente)* Nube / IaC | Terraform/Pulumi, bibliotecas por proveedor |
+| 05 | *(pendiente)* Catálogo + protocolo de importación | Selección concreta y protocolo (complementa doc 10 §2 de la serie principal) |
+
+> Los docs 02–05 aún no existen — el 01 los referencia como estructura futura.
 ---
 
 ## Resumen Ejecutivo

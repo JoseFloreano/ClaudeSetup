@@ -2,7 +2,7 @@
 
 Setup compartido entre Claude Code y Cowork, diseñado para 2-3 laptops
 sincronizadas via OneDrive. Ver análisis de división de trabajo entre
-productos en `docs/08-COWORK-VS-CLAUDE-CODE.md`.
+productos en `docs/cowork-y-multiagente/08-COWORK-VS-CLAUDE-CODE.md`.
 
 ## Componentes de este directorio
 
@@ -49,6 +49,17 @@ del disco. Compensa con: (1) remote git del vault en GitHub (aquí deja de ser
 opcional), y (2) copia periódica de `DevSetup/graphiti-data/backups/` a disco
 externo o nube. Migrar a multi-laptop después es trivial: mueve `~/DevSetup/`
 dentro de OneDrive y re-corre el setup.
+
+### Regla de flujo git multi-laptop (lección de la primera instalación)
+
+Los archivos que Claude escribe en disco NO están en git hasta commitear. Antes
+de trabajar el repo desde otra laptop: `git add + commit + push` en la actual, y
+`git pull` en la otra ANTES de editar — si no, un pull posterior pisa versiones
+nuevas con base vieja (ya pasó: revirtió los bootstrap a pre-auditoría). Si un
+pull toca `setup/`, verifica rápido: `grep GraphitiLocal setup-new-machine.ps1`.
+Además: todo `.ps1` de este repo lleva **UTF-8 con BOM** (powershell.exe lee sin
+BOM como ANSI y los caracteres `─`/`—` rompen el parseo); el `plugin.json` del
+plugin de Cowork va **sin BOM** y el zip con rutas `/` y el plugin root en la raíz.
 
 ### Memoria por proyecto: la regla de oro
 

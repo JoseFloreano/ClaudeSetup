@@ -1,14 +1,19 @@
-# ══════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════
 #  setup-new-machine.ps1 — Bootstrap Graphiti en Windows
 #
 #  ESTRATEGIA A REAL (fix auditoría A1): datos vivos en disco LOCAL
-#  (%LOCALAPPDATA%\graphiti), OneDrive SOLO recibe backups terminados.
+#  (%LOCALAPPDATA%\graphiti), la raíz de sync SOLO recibe backups terminados.
 #  El .env con API keys también vive LOCAL (fix A4 — nunca en OneDrive).
+#
+#  ⚠ Este archivo DEBE guardarse como UTF-8 CON BOM (doc 11, B1):
+#    powershell.exe (PS 5.1 / Task Scheduler) lee .ps1 sin BOM como ANSI y
+#    los caracteres ─ / — inyectan comillas fantasma que rompen el parseo.
 #
 #  Ejecutar en PowerShell como administrador:
 #    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 #    .\setup-new-machine.ps1
 #    .\setup-new-machine.ps1 -OneDrivePath "D:\OneDrive"
+#    .\setup-new-machine.ps1 -Local          # single-laptop, sin OneDrive
 # ══════════════════════════════════════════════════════════════
 
 param(
@@ -32,7 +37,7 @@ if ($Local) { $OneDrivePath = $env:USERPROFILE }
 $SyncMode      = if ($Local) { "single-laptop (local, sin OneDrive)" } else { "multi-laptop (OneDrive)" }
 $DevSetup      = "$OneDrivePath\DevSetup"
 $GraphitiLocal = "$env:LOCALAPPDATA\graphiti"       # datos + config + .env + scripts (LOCAL)
-$BackupDir     = "$DevSetup\graphiti-data\backups"  # lo ÚNICO de Graphiti en OneDrive
+$BackupDir     = "$DevSetup\graphiti-data\backups"  # lo ÚNICO de Graphiti en la raíz de sync
 $Warnings      = @()
 
 function Write-Header { param($msg) Write-Host "`n▶ $msg" -ForegroundColor Blue }
@@ -78,7 +83,7 @@ Write-Header "Creando directorios"
     New-Item -ItemType Directory -Force -Path $_ | Out-Null
 }
 Write-OK "Local:   $GraphitiLocal\{data,config,scripts}"
-Write-OK "OneDrive: $BackupDir (solo snapshots)"
+Write-OK "Backups: $BackupDir (solo snapshots)"
 
 # ── 3. Copiar compose, config y scripts (fix A2: los scripts SÍ se instalan) ──
 Write-Header "Instalando archivos"
@@ -110,7 +115,7 @@ if (-not (Test-Path $envFile)) {
 # Auto-generado por setup-new-machine.ps1 en $env:COMPUTERNAME - $(Get-Date -Format 'yyyy-MM-dd HH:mm')
 # UBICACIÓN LOCAL A PROPÓSITO: contiene API keys (auditoría A4).
 
-# Estrategia A: datos vivos LOCALES (formato Docker), backups a OneDrive
+# Estrategia A: datos vivos LOCALES (formato Docker), backups a la raíz de sync
 FALKORDB_DATA_PATH=$dataDocker
 CONFIG_PATH=$configDocker
 BACKUP_DIR=$BackupDir
@@ -175,7 +180,7 @@ try {
     Write-Info "claude mcp add --transport http graphiti-memory http://localhost:8000/mcp/ -s user"
 }
 
-# ── 5b. Sincronizar skills (OneDrive → Claude Code + plugin Cowork) ──────
+# ── 5b. Sincronizar skills (raíz de sync → Claude Code + plugin Cowork) ───
 Write-Header "Sincronizando skills"
 $syncSkills = Join-Path $PSScriptRoot "sync-skills.ps1"
 if (Test-Path $syncSkills) {
@@ -240,7 +245,7 @@ if ($hasBackupScript -and (Test-Path $backupScript)) {
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
             -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration ([TimeSpan]::MaxValue)
         Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
-            -Description "Backup del grafo Graphiti a OneDrive cada 4h" -RunLevel Highest | Out-Null
+            -Description "Backup del grafo Graphiti cada 4h" -RunLevel Highest | Out-Null
         Write-OK "Task Scheduler: backup cada 4 horas"
         Write-Info "Verifica en unas horas: Get-ScheduledTaskInfo $taskName"
     } else { Write-OK "Task Scheduler ya configurado" }
@@ -257,7 +262,7 @@ if (Test-Path $syncSkills) {
             -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$syncSkills`" -SkillsRoot `"$DevSetup\claude-skills`" -NoCoworkBuild"
         $trigger2 = New-ScheduledTaskTrigger -AtLogOn
         Register-ScheduledTask -TaskName $taskName2 -Action $action2 -Trigger $trigger2 `
-            -Description "Sincroniza skills de Claude desde OneDrive al iniciar sesión" | Out-Null
+            -Description "Sincroniza skills de Claude al iniciar sesión" | Out-Null
         Write-OK "Skills se sincronizarán en cada inicio de sesión"
     } else { Write-OK "Tarea de sync de skills ya existe" }
 }
@@ -274,15 +279,15 @@ Write-Info "FalkorDB Browser UI : http://localhost:3000 (solo esta máquina)"
 Write-Info "MCP endpoint        : http://localhost:8000/mcp/"
 Write-Info "Datos (LOCAL)       : $GraphitiLocal\data\"
 Write-Info ".env (LOCAL)        : $envFile"
-Write-Info "Backups (OneDrive)  : $BackupDir"
+Write-Info "Backups             : $BackupDir"
 Write-Host ""
-Write-Info "Próximos pasos:"
 if ($Local) {
     Write-Warn "Modo single-laptop: los backups quedan en el MISMO disco. Protegen contra"
     Write-Warn "corrupción del grafo, no contra falla del disco — agenda una copia periódica"
     Write-Warn "de $BackupDir a un disco externo o nube, y usa remote git para el vault."
 }
-Write-Info "1. Completa el .env si quedó incompleto (OPENAI_API_KEY, pins de versión)"
+Write-Info "Próximos pasos:"
+Write-Info "1. Completa el .env si quedó incompleto (key del provider, pins de versión)"
 Write-Info "2. SIMULACRO DE RESTORE (auditoría A3): en cuanto haya datos reales,"
 Write-Info "   prueba restore-graph.ps1 con un backup — un backup no probado no existe"
 Write-Info "3. Copia .graphiti.json a cada proyecto"

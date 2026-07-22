@@ -3,14 +3,15 @@
 #  setup-new-machine.sh — Bootstrap Graphiti en laptop nueva (macOS/Linux)
 #
 #  ESTRATEGIA A REAL (fix auditoría A1): datos vivos en disco LOCAL
-#  (~/.local/share/graphiti), OneDrive SOLO recibe backups terminados.
+#  (~/.local/share/graphiti), la raíz de sync SOLO recibe backups terminados.
 #  El .env con API keys también vive LOCAL (fix A4 — nunca en OneDrive).
 #
-#  Prerequisitos: Docker Desktop corriendo, OneDrive sincronizado, claude CLI.
+#  Prerequisitos: Docker Desktop corriendo, claude CLI. OneDrive es opcional.
 #
 #  Uso:
 #    bash setup-new-machine.sh                   # OneDrive en ~/OneDrive
 #    bash setup-new-machine.sh /ruta/a/OneDrive  # path explícito
+#    LOCAL=1 bash setup-new-machine.sh           # single-laptop, sin OneDrive
 #    FORCE_ONEDRIVE=1 bash setup-new-machine.sh  # escape hatch Estrategia B
 # ══════════════════════════════════════════════════════════════
 
@@ -29,7 +30,7 @@ fi
 SYNC_MODE=$([ -n "${LOCAL:-}" ] && echo "single-laptop (local, sin OneDrive)" || echo "multi-laptop (OneDrive)")
 DEVSETUP="${ONEDRIVE}/DevSetup"
 GRAPHITI_LOCAL="${GRAPHITI_LOCAL:-$HOME/.local/share/graphiti}"   # datos + config + .env + scripts (LOCAL)
-BACKUP_DIR="${DEVSETUP}/graphiti-data/backups"                     # lo ÚNICO de Graphiti en OneDrive
+BACKUP_DIR="${DEVSETUP}/graphiti-data/backups"                     # lo ÚNICO de Graphiti en la raíz de sync
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WARNINGS=()
 
@@ -70,8 +71,8 @@ esac
 header "Creando directorios"
 mkdir -p "${GRAPHITI_LOCAL}"/{data,config,scripts}
 mkdir -p "${BACKUP_DIR}"
-ok "Local:    ${GRAPHITI_LOCAL}/{data,config,scripts}"
-ok "OneDrive: ${BACKUP_DIR} (solo snapshots)"
+ok "Local:   ${GRAPHITI_LOCAL}/{data,config,scripts}"
+ok "Backups: ${BACKUP_DIR} (solo snapshots)"
 
 # ── 3. Instalar compose, config y scripts (fix A2) ────────────────────────
 header "Instalando archivos"
@@ -108,7 +109,7 @@ else
 # Auto-generado por setup-new-machine.sh en $(hostname) — $(date)
 # UBICACIÓN LOCAL A PROPÓSITO: contiene API keys (auditoría A4).
 
-# Estrategia A: datos vivos LOCALES, backups a OneDrive
+# Estrategia A: datos vivos LOCALES, backups a la raíz de sync
 FALKORDB_DATA_PATH=${GRAPHITI_LOCAL}/data
 CONFIG_PATH=${GRAPHITI_LOCAL}/config
 BACKUP_DIR=${BACKUP_DIR}
@@ -176,7 +177,7 @@ else
   warn "Claude Code CLI no encontrado. Agrega el MCP manualmente."
 fi
 
-# ── 5b. Sincronizar skills (OneDrive → Claude Code + plugin Cowork) ───────
+# ── 5b. Sincronizar skills (raíz de sync → Claude Code + plugin Cowork) ───
 header "Sincronizando skills"
 if [ -f "${SCRIPT_DIR}/sync-skills.sh" ]; then
   bash "${SCRIPT_DIR}/sync-skills.sh" "${ONEDRIVE}" || warn "sync-skills falló; córrelo manualmente."
@@ -259,7 +260,7 @@ echo "  FalkorDB Browser UI : http://localhost:3000 (solo esta máquina)"
 echo "  MCP endpoint        : http://localhost:8000/mcp/"
 echo "  Datos (LOCAL)       : ${GRAPHITI_LOCAL}/data/"
 echo "  .env (LOCAL)        : ${ENV_FILE}"
-echo "  Backups (OneDrive)  : ${BACKUP_DIR}"
+echo "  Backups             : ${BACKUP_DIR}"
 echo ""
 if [ -n "${LOCAL:-}" ]; then
   echo -e "  ${YELLOW}Modo single-laptop: los backups quedan en el MISMO disco. Protegen contra${NC}"
@@ -268,7 +269,7 @@ if [ -n "${LOCAL:-}" ]; then
   echo ""
 fi
 echo "  Próximos pasos:"
-echo "  1. Completa el .env si quedó incompleto (OPENAI_API_KEY, pins de versión)."
+echo "  1. Completa el .env si quedó incompleto (key del provider, pins de versión)."
 echo "  2. SIMULACRO DE RESTORE (auditoría A3): en cuanto haya datos reales,"
 echo "     prueba restore-graph.sh — un backup no probado no existe."
 echo "  3. Copia .graphiti.json a cada proyecto."

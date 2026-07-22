@@ -15,8 +15,9 @@ donde se quedó. **Solo lectura** — no escribe memoria en este paso.
 
 ## Requisitos
 
-- Vault en `OneDrive/DevSetup/ObsidianVault/`. Si no está, avísalo y sigue con
-  lo que haya en el repo.
+- Vault en `DevSetup/ObsidianVault/`, bajo OneDrive (multi-laptop) o bajo el
+  home / `%USERPROFILE%` (single-laptop) — usa la raíz que exista. Si no hay
+  vault, avísalo y sigue con lo que haya en el repo.
 - MCP `graphiti-memory` — **opcional**: si no está, omite su búsqueda sin error
   (el vault es la fuente primaria).
 

@@ -1,0 +1,62 @@
+---
+name: design-doc-harvest
+description: >
+  Cosecha los documentos de diseño de Superpowers (specs de brainstorming y
+  planes de writing-plans) cuando la implementación termina: destila lo durable
+  a un ADR en el vault y BORRA los docs de trabajo del repo (git conserva la
+  historia). Use when the user says "ya quedó implementado", "terminé el plan",
+  "cosecha el diseño", "limpia los docs de superpowers", "harvest", or al cerrar
+  un execute-plan completado. NO usar con planes a medias — solo se cosecha lo
+  terminado.
+---
+
+# Design Doc Harvest
+
+El eslabón que le falta a Superpowers: specs y planes son andamiaje temporal;
+lo durable vive en el vault. Esta skill cierra el pipeline
+`brainstorming → council → writing-plans → execute → harvest → adr-writer`.
+
+## Requisitos
+
+- Repo del proyecto accesible con git (Claude Code; en Cowork solo si la carpeta
+  del repo está conectada — si no, genera el ADR y deja al usuario el borrado).
+- Skill `adr-writer` disponible (hace el registro en vault + Graphiti).
+
+## Pasos
+
+1. **Localiza los docs del trabajo terminado**: `docs/superpowers/specs/*.md` y
+   `docs/superpowers/plans/*.md` (o la ruta que fije el CLAUDE.md). Si hay varios
+   features mezclados, lista y confirma con el usuario CUÁLES corresponden a lo
+   ya implementado.
+2. **Verifica que está completado de verdad**: los checkboxes del plan están
+   marcados o el usuario lo confirma. Un plan a medias NO se cosecha — se queda.
+3. **Destila lo durable** (esto es lo que sobrevive; el resto es andamiaje):
+   - La decisión de diseño final y su porqué
+   - Alternativas rechazadas y por qué (los "por qué NO" valen igual)
+   - Trade-offs aceptados conscientemente
+   - **Deltas**: qué cambió entre el diseño original y lo realmente implementado
+     — ahí suele estar el aprendizaje más valioso
+   NO copies el spec/plan completo al vault: ejemplos de código, comandos y
+   checkboxes son basura futura (memory rot).
+4. **Registra con `adr-writer`** (un ADR por decisión mayor, no un mega-ADR).
+   En cada ADR incluye: referencia al commit/PR de la implementación, y la nota
+   "docs de trabajo cosechados y borrados — historia completa en git: <sha>".
+5. **Borra los docs cosechados** — SOLO después de que el/los ADR existen y el
+   usuario aprobó la lista exacta de archivos:
+   ```bash
+   git rm docs/superpowers/specs/<...>.md docs/superpowers/plans/<...>.md
+   git commit -m "chore: harvest design docs -> ADR-YYYYMMDD-<tema> (vault)"
+   ```
+   Borrar es seguro: ambos archivos fueron commiteados por Superpowers y git
+   conserva la historia; el ADR apunta al sha.
+6. **Verifica**: ADR(s) en `10-Projects/<proyecto>/ADRs/` con wikilink en
+   `_PROJECT.md`; `docs/superpowers/` sin restos del feature; commit de limpieza
+   hecho.
+
+## Qué NO hacer
+
+- No cosechar planes incompletos ni specs de features abandonados (esos se
+  borran sin ADR, con confirmación — no todo diseño merece memoria).
+- No copiar documentos completos al vault (el vault es conocimiento durable,
+  no archivero de andamiaje).
+- No borrar nada sin el ADR escrito primero y la lista aprobada.

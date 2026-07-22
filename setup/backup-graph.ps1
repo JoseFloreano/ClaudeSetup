@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════
 #  backup-graph.ps1 — Snapshot RDB de FalkorDB → OneDrive (Windows)
 #
 #  Creado por auditoría A2: la versión Windows NO existía y el Task

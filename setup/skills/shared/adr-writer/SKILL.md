@@ -21,8 +21,9 @@ productos (Claude Code y Cowork comparten el vault).
 
 ## Requisitos
 
-- Vault de Obsidian en `OneDrive/DevSetup/ObsidianVault/` — si no es accesible,
-  ofrece guardar el ADR como `docs/adr/` dentro del repo del proyecto.
+- Vault de Obsidian en `DevSetup/ObsidianVault/`, bajo OneDrive (multi-laptop)
+  o bajo el home / `%USERPROFILE%` (single-laptop) — usa la raíz que exista.
+  Si no es accesible, ofrece guardar el ADR como `docs/adr/` dentro del repo.
 - MCP `graphiti-memory` — **opcional**: si no está disponible (típico en Cowork),
   omite el paso 5 sin avisar error; el vault es la fuente primaria.
 

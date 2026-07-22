@@ -28,6 +28,8 @@ ecosistema y traduciendo el resultado a un plan de acción priorizado.
 2. **Corre el escáner** correspondiente y captura la salida en JSON cuando se pueda:
    - npm: `npm audit --json`   · yarn: `yarn npm audit --json`   · pnpm: `pnpm audit --json`
    - Python: `pip-audit -r requirements.txt` o `pip-audit` (entorno activo); poetry: `pip-audit`.
+   - Dart/Flutter (`pubspec.lock`) y C++/Conan (`conan.lock`): no tienen audit nativo —
+     usa `osv-scanner --lockfile <archivo>` si está instalado; si no, repórtalo como gap.
    Si la herramienta no está, instálala o indícalo (`pip install pip-audit`).
 3. **Prioriza** los hallazgos por: severidad (crítica/alta primero), si el paquete es
    dependencia directa o transitiva, si hay **fix disponible**, y si la ruta vulnerable
