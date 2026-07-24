@@ -40,6 +40,8 @@ La serie original: por qué esta arquitectura de memoria y no otra.
 |-----|------|
 | [10 · Diseño y desarrollo](./skills/10-SKILLS-DISENO-Y-DESARROLLO.md) | Seguridad, council, BD, diseño + **protocolo de auditoría §2** ⭐ |
 | [11 · Testing y debugging](./skills/11-SKILLS-TESTING-Y-DEBUGGING.md) | Qué adoptar, qué duplica Superpowers, backlog propio |
+| [13 · IA agéntica](./skills/13-SKILLS-IA-AGENTICA.md) | Diseño agéntico, tokens, meta-skills, benchmarks de modelos + 5 skills propias |
+| [15 · APIs y despliegue](./skills/15-SKILLS-APIS-Y-DESPLIEGUE.md) | api-design, api-evolution (oasdiff) y deploy-planner con cuestionario |
 
 ### 📁 [`ecosistema/`](./ecosistema/) — Evaluaciones de herramientas externas
 
