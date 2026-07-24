@@ -27,7 +27,8 @@ donde se quedó. **Solo lectura** — no escribe memoria en este paso.
    `CLAUDE.md`, o del nombre de la carpeta del repo. Respeta el aislamiento:
    solo este proyecto.
 2. Lee `10-Projects/<nombre>/_PROJECT.md`. Si no existe, el proyecto no está
-   enganchado → sugiere `project-onboard` y para.
+   enganchado → sugiere `project-onboard` y para. Si existe
+   `codebase-map.md`, léelo también — es el mapa estructural del proyecto.
 3. Lee los **últimos ~3 ADRs** de `10-Projects/<nombre>/ADRs/` (por la fecha del
    nombre, descendente) y revisa `bugs/` por issues abiertos relevantes a la
    tarea de hoy.

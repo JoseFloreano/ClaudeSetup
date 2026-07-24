@@ -41,6 +41,12 @@ La serie original: por qué esta arquitectura de memoria y no otra.
 | [10 · Diseño y desarrollo](./skills/10-SKILLS-DISENO-Y-DESARROLLO.md) | Seguridad, council, BD, diseño + **protocolo de auditoría §2** ⭐ |
 | [11 · Testing y debugging](./skills/11-SKILLS-TESTING-Y-DEBUGGING.md) | Qué adoptar, qué duplica Superpowers, backlog propio |
 
+### 📁 [`ecosistema/`](./ecosistema/) — Evaluaciones de herramientas externas
+
+| Doc | Tema |
+|-----|------|
+| [14 · Hermes y OpenClaw](./ecosistema/14-HERMES-Y-OPENCLAW.md) | ¿Aditivos o estorbo? Veredicto: no adoptar hoy; criterios de re-evaluación |
+
 ### 📁 [`bd-y-nube/`](./bd-y-nube/) — Subserie de datos e infraestructura
 
 | Doc | Tema |

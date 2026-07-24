@@ -36,6 +36,15 @@ aislamiento activo.
    Mantenlo corto. Si el template no existe aún, NO pares: crea un `_PROJECT.md`
    mínimo (frontmatter con `title/project/created/status: active` + secciones
    "Estado actual", "Decisiones clave", "Pendientes") y avisa que falta el template.
+4b. **(Opcional — ofrécelo en proyectos medianos/grandes)** Genera el mapa del
+   codebase en `10-Projects/<nombre>/codebase-map.md`. Ruta barata SIEMPRE
+   primero: si Graphify está disponible, corre `graphify .` y sintetiza el mapa
+   desde `graphify-out/GRAPH_REPORT.md` — NO leas el codebase completo, el
+   reporte AST ya trae la estructura gratis (H5). Sin Graphify: explora con
+   subagents y AVISA el costo en tokens antes de empezar. Contenido del mapa:
+   módulos y su responsabilidad, puntos de entrada, dependencias clave,
+   wikilinks a ADRs relevantes. Es markdown navegable en el vault — no un
+   grafo paralelo que driftee.
 5. Añade las reglas de memoria al `CLAUDE.md` del proyecto (créalo si no existe):
    pega el contenido de `references/memory-snippet.md` reemplazando **todas** las
    apariciones de `<project-name>` por el nombre real. Si ya hay una sección

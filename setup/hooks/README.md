@@ -14,6 +14,8 @@ de ejecutarse** y Claude recibe el motivo para autocorregirse.
 | Hook | Evento | Qué garantiza |
 |------|--------|---------------|
 | `validate-graphiti-group-id.py` | PreToolUse sobre `mcp__graphiti*` | Ningún `add_episode` sin `group_id` válido; ninguna búsqueda sin `group_ids`. Bloquea `main`, vacío y placeholders |
+| `mark-code-dirty.py` | PostToolUse sobre `Write\|Edit\|MultiEdit` | Marca flag cuando la sesión edita CÓDIGO (los .md no cuentan) — insumo del siguiente |
+| `check-vault-updated.py` | Stop | Anti-drift del vault: si hubo código editado y `_PROJECT.md` no se actualizó después, bloquea el cierre (exit 2) pidiendo SOLO pendientes/estado. **Una vez por sesión**, respeta `stop_hook_active`, silencio total en proyectos sin onboarding. El cierre completo es de la skill `session-close` |
 
 Requiere Python 3 en el PATH (`python3` en macOS/Linux, `python` en Windows).
 
@@ -35,10 +37,25 @@ Requiere Python 3 en el PATH (`python3` en macOS/Linux, `python` en Windows).
          {
            "matcher": "mcp__graphiti",
            "hooks": [
-             {
-               "type": "command",
-               "command": "python3 ~/.claude/hooks/validate-graphiti-group-id.py"
-             }
+             { "type": "command",
+               "command": "python3 ~/.claude/hooks/validate-graphiti-group-id.py" }
+           ]
+         }
+       ],
+       "PostToolUse": [
+         {
+           "matcher": "Write|Edit|MultiEdit",
+           "hooks": [
+             { "type": "command",
+               "command": "python3 ~/.claude/hooks/mark-code-dirty.py" }
+           ]
+         }
+       ],
+       "Stop": [
+         {
+           "hooks": [
+             { "type": "command",
+               "command": "python3 ~/.claude/hooks/check-vault-updated.py" }
            ]
          }
        ]
@@ -46,8 +63,14 @@ Requiere Python 3 en el PATH (`python3` en macOS/Linux, `python` en Windows).
    }
    ```
 
-3. Verifica en una sesión nueva: pide a Claude guardar un episodio **sin**
-   group_id — debe ser bloqueado y reintentar con el group_id correcto.
+3. Verifica en una sesión nueva:
+   - Graphiti: pide guardar un episodio **sin** group_id — debe bloquearse.
+   - Anti-drift: en un proyecto enganchado, pide un cambio de código trivial y
+     deja que termine — al final debe pedir actualizar pendientes UNA vez
+     (y no repetirlo en el mismo chat tras cumplir).
+
+> Añade `.claude/vault-dirty.json` al `.gitignore` de tus proyectos (es estado
+> de sesión local, no se versiona).
 
 ## Diseño
 

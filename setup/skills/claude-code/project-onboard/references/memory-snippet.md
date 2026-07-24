@@ -18,6 +18,8 @@
 
 At session start: `search_facts("recent decisions and known issues", group_ids=["<project-name>", "dev-global"])`, then read `10-Projects/<project-name>/_PROJECT.md`.
 
+After completing each coding task, BEFORE reporting it done: update Pendientes/Estado in `10-Projects/<project-name>/_PROJECT.md` if they changed (2-5 lines — a Stop hook enforces this once per session). Full close ritual → say "cerramos" (`session-close` skill).
+
 When saving decisions/bugs/conventions → use the `memory-keeper` skill (format & criteria live there). Architecture decisions → `adr-writer` skill.
 
 If the `graphiti-memory` MCP is unavailable, skip Graphiti silently — the vault is the primary record.

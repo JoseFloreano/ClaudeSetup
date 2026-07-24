@@ -1,0 +1,11 @@
+# ── Claude Code: estado LOCAL de sesión (no versionar) ──────────────
+# El .claude/settings.json del proyecto SÍ se versiona (config compartida).
+# Solo se ignora lo volátil/por-máquina:
+.claude/vault-dirty.json
+.claude/settings.local.json
+
+# ── Ruido de sistema / Python ───────────────────────────────────────
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
